@@ -652,6 +652,7 @@ if (searchBox) searchBox.oninput = () => {
 // 启动时显示姓名验证界面，或自动加载已保存的姓名
 const savedName = localStorage.getItem("verified_name");
 if (savedName) {
+  // 有保存的姓名，先不显示弹窗，尝试自动登录
   // 验证保存的姓名是否仍然有效
   fetch(API_BASE + "/api/user?name=" + encodeURIComponent(savedName))
     .then(r => r.json())
@@ -665,7 +666,6 @@ if (savedName) {
         document.getElementById("show-login-btn").hidden = false; // 保留登录按钮
         document.getElementById("tabs").hidden = true;
         document.getElementById("search").hidden = true;
-        document.getElementById("name-verify-mask").hidden = true;
         load();
         selectUser(savedName);
       } else {
@@ -680,6 +680,7 @@ if (savedName) {
       showNameVerify();
     });
 } else {
+  // 没有保存的姓名，显示验证界面
   showNameVerify();
 }
 
