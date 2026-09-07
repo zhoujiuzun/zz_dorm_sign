@@ -106,12 +106,29 @@ function showLogin() {
   document.getElementById("login-user").value = "";
   document.getElementById("login-pass").value = "";
   document.getElementById("switch-user-name").value = "";
+  // 默认显示普通用户切换面板
+  document.getElementById("user-login-panel").hidden = false;
+  document.getElementById("admin-login-panel").hidden = true;
 }
 function hideLogin() {
   document.getElementById("login-mask").hidden = true;
 }
 
 document.getElementById("show-login-btn").onclick = showLogin;
+
+// 切换到管理员登录面板
+document.getElementById("switch-to-admin").onclick = () => {
+  document.getElementById("user-login-panel").hidden = true;
+  document.getElementById("admin-login-panel").hidden = false;
+  document.getElementById("login-user").focus();
+};
+
+// 切换到普通用户面板
+document.getElementById("switch-to-user").onclick = () => {
+  document.getElementById("user-login-panel").hidden = false;
+  document.getElementById("admin-login-panel").hidden = true;
+  document.getElementById("switch-user-name").focus();
+};
 
 // 切换到其他普通用户
 document.getElementById("switch-user-btn").onclick = () => {
