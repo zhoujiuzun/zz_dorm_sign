@@ -38,7 +38,10 @@
         <input type="text" id="switch-user-name" placeholder="请输入姓名" autocomplete="off">
         <button id="switch-user-btn" class="btn-primary">查看签到</button>
         <div class="login-err" id="switch-user-err"></div>
-        <button id="switch-to-admin" class="btn-link" style="margin-top: 12px;">管理员登录</button>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px;">
+          <button id="switch-to-admin" class="btn-link" style="margin: 0;">管理员登录</button>
+          <button id="login-cancel-user" class="btn-link" style="margin: 0;">取消</button>
+        </div>
       </div>
 
       <!-- 管理员登录 -->
@@ -48,10 +51,11 @@
         <input type="password" id="login-pass" placeholder="密码" autocomplete="current-password">
         <button id="login-btn" class="btn-primary">登录</button>
         <div class="login-err" id="login-err"></div>
-        <button id="switch-to-user" class="btn-link" style="margin-top: 12px;">切换用户</button>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px;">
+          <button id="switch-to-user" class="btn-link" style="margin: 0;">切换用户</button>
+          <button id="login-cancel-admin" class="btn-link" style="margin: 0;">取消</button>
+        </div>
       </div>
-
-      <button id="login-cancel" class="btn-link" style="margin-top: 8px;">取消</button>
     </div>
   </div>
 

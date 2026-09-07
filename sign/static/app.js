@@ -206,6 +206,9 @@ document.getElementById("login-btn").onclick = () => {
 
 document.getElementById("login-cancel").onclick = hideLogin;
 
+document.getElementById("login-cancel-user").onclick = hideLogin;
+document.getElementById("login-cancel-admin").onclick = hideLogin;
+
 document.getElementById("logout-btn").onclick = () => {
   state.token = "";
   state.isAdmin = false;
