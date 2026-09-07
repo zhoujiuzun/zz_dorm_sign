@@ -1,0 +1,48 @@
+# 敏感信息
+.env
+deploy.ps1
+docs/AK-SK凭据.txt
+docs/私密信息汇总.md
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# 虚拟环境
+.mitm-venv/
+venv/
+env/
+
+# 构建产物
+build/
+dist/
+*.spec
+*.exe
+*.zip
+
+# 调试文件
+.captured_openid
+.openid_debug
+capture/.captured_openid
+capture/.openid_debug
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Serverless Devs
+.s/
+
+# 临时文件
+*.log
+*.tmp
