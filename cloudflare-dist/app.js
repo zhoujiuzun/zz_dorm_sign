@@ -92,11 +92,6 @@ document.getElementById("name-verify-btn").onclick = () => {
     });
 };
 
-document.getElementById("name-verify-admin").onclick = () => {
-  hideNameVerify();
-  showLogin();
-};
-
 document.getElementById("name-input").onkeypress = (e) => {
   if (e.key === "Enter") {
     document.getElementById("name-verify-btn").click();
