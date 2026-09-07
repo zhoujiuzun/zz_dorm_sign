@@ -311,7 +311,7 @@ function switchView(v) {
     document.getElementById("blacklist").hidden = true;
     renderMembers();
   } else {
-    document.getElementById("view-title").textContent = "黑名单";
+    document.getElementById("view-title").textContent = "非活跃成员";
     document.getElementById("members").hidden = true;
     document.getElementById("blacklist").hidden = false;
     renderBlacklist();
@@ -344,6 +344,14 @@ function _renderMemberCard(m, isBlacklist) {
     timeLine = `<span class="m-time">预定 ${esc(m.scheduled_time)}</span>`;
   }
 
+  // 非活跃成员：用图标 + 文字标明是被拉黑还是被删除
+  let stateTag = "";
+  if (m.status_type === "blacklisted") {
+    stateTag = `<span class="m-state-tag">🚫 已拉黑</span>`;
+  } else if (m.status_type === "deleted") {
+    stateTag = `<span class="m-state-tag">🗑️ 已删除</span>`;
+  }
+
   const el = document.createElement("div");
   el.className = "member";
   el.innerHTML =
@@ -351,6 +359,7 @@ function _renderMemberCard(m, isBlacklist) {
       `<span class="m-ava">${esc(m.nickname.slice(0, 1))}</span>` +
       `<span class="m-main">` +
         `<span class="m-top"><span class="m-name">${esc(m.nickname)}</span>` +
+        stateTag +
         `<span class="m-badge ${st.cls}">${st.text}</span></span>` +
         `<span class="m-strip">${strip}</span>` +
         timeLine +
@@ -361,16 +370,24 @@ function _renderMemberCard(m, isBlacklist) {
   // 管理员模式：添加操作按钮
   if (state.token) {
     if (isBlacklist) {
+      // 非活跃成员：按 status_type 分派到对应的 API
+      const isDeleted = m.status_type === "deleted";
       const btns = document.createElement("div");
       btns.className = "bl-btns";
       const restore = document.createElement("button");
       restore.className = "btn-primary btn-sm";
       restore.textContent = "恢复";
-      restore.onclick = e => { e.stopPropagation(); restoreMember(m.id, m.nickname); };
+      restore.onclick = e => {
+        e.stopPropagation();
+        isDeleted ? restoreDeleted(m.id, m.nickname) : restoreMember(m.id, m.nickname);
+      };
       const del = document.createElement("button");
       del.className = "btn-danger btn-sm";
-      del.textContent = "删除";
-      del.onclick = e => { e.stopPropagation(); deleteMember(m.id, m.nickname); };
+      del.textContent = "彻底删除";
+      del.onclick = e => {
+        e.stopPropagation();
+        isDeleted ? purgeDeleted(m.id, m.nickname) : deleteMember(m.id, m.nickname);
+      };
       btns.appendChild(restore);
       btns.appendChild(del);
       el.appendChild(btns);
@@ -440,14 +457,14 @@ function blacklistMember(id, nick) {
 // PLACEHOLDER_BLACKLIST
 function renderBlacklist() {
   const box = document.getElementById("blacklist");
-  const all = state.blacklist?.blacklist || [];
+  const all = state.blacklist?.inactive || [];
   const kw = state.filter.trim().toLowerCase();
   const list = kw ? all.filter(m => m.nickname.toLowerCase().includes(kw)) : all;
 
   document.getElementById("member-count").textContent = "(" + all.length + ")";
   box.innerHTML = "";
   if (!list.length) {
-    box.innerHTML = '<div class="empty">' + (all.length ? "无匹配黑名单" : "暂无黑名单成员") + "</div>";
+    box.innerHTML = '<div class="empty">' + (all.length ? "无匹配成员" : "暂无非活跃成员") + "</div>";
     return;
   }
   list.forEach(m => {
@@ -489,8 +506,40 @@ function deleteMember(id, nick) {
   }).catch(() => alert("网络错误"));
 }
 
+function restoreDeleted(id, nick) {
+  if (!confirm(`恢复「${nick}」为正常成员？恢复后将重新参与自动签到。`)) return;
+  fetch(API_BASE + "/api/deleted/restore", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({token: state.token, id}),
+  }).then(r => r.json()).then(d => {
+    if (d.ok) {
+      showToast(`已恢复「${nick}」`);
+      load();
+    } else {
+      alert(d.error || "操作失败");
+    }
+  }).catch(() => alert("网络错误"));
+}
+
+function purgeDeleted(id, nick) {
+  if (!confirm(`彻底删除「${nick}」？删除后该用户的 openid 将丢失，无法再自助恢复。`)) return;
+  fetch(API_BASE + "/api/deleted/purge", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({token: state.token, id}),
+  }).then(r => r.json()).then(d => {
+    if (d.ok) {
+      showToast(`已彻底删除「${nick}」`);
+      load();
+    } else {
+      alert(d.error || "操作失败");
+    }
+  }).catch(() => alert("网络错误"));
+}
+
 function deleteMemberDirectly(id, nick) {
-  if (!confirm(`确定删除「${nick}」？删除后该成员将从名册中移除，停止自动签到。`)) return;
+  if (!confirm(`确定删除「${nick}」？该成员将从列表中隐藏并停止自动签到，历史记录保留；重新注册可自动恢复。`)) return;
   fetch(API_BASE + "/api/member/delete", {
     method: "POST",
     headers: {"Content-Type": "application/json"},
@@ -517,10 +566,13 @@ function selectUser(name) {
   document.getElementById("cal-body").innerHTML =
     '<tr><td colspan="7" class="cal-loading">加载中…</td></tr>';
 
-  // 检查该成员是否在黑名单中
-  const isBlacklisted = state.blacklist?.blacklist?.some(b => b.nickname === name);
+  // 该成员若属于非活跃成员，标明是被拉黑还是被删除
+  const inactive = state.blacklist?.inactive?.find(b => b.nickname === name);
   const alert = document.getElementById("uc-blacklist-alert");
-  if (isBlacklisted) {
+  if (inactive) {
+    alert.textContent = inactive.status_type === "deleted"
+      ? "🗑️ 该成员已被删除，以下为历史记录"
+      : "🚫 该成员已被拉黑，以下为历史记录";
     alert.hidden = false;
   } else {
     alert.hidden = true;

@@ -222,6 +222,10 @@ main { max-width: 980px; margin: 0 auto; padding: 20px 14px 0; width: 100%; alig
 .m-badge.d-fail { background: var(--fail); }
 .m-badge.d-pending, .m-badge.d-none { background: var(--pending); }
 
+/* 非活跃成员的状态标签（已拉黑 / 已删除） */
+.m-state-tag { flex: none; font-size: 10.5px; padding: 2px 8px; border-radius: 20px;
+               background: #eef1f5; color: var(--sub); }
+
 .m-strip { display: flex; gap: 3px; margin-top: 6px; }
 .m-time { display: block; font-size: 11px; color: var(--sub); margin-top: 5px; }
 .m-time.done { color: var(--ok); font-weight: 600; }

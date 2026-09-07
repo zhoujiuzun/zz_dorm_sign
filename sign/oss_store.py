@@ -22,6 +22,7 @@ OSS_ENDPOINT = os.environ.get("OSS_ENDPOINT", "oss-cn-beijing-internal.aliyuncs.
 USERS_KEY = "users.json"
 HISTORY_KEY = "history.json"
 BLACKLIST_KEY = "blacklist.json"
+DELETED_KEY = "deleted.json"
 SETTINGS_KEY = "settings.json"
 
 
@@ -159,6 +160,17 @@ def is_blacklisted(openid):
     return any(b.get("openid") == openid for b in get_blacklist())
 
 
+# ------------------------------------------------------------------
+# 已删除成员
+# ------------------------------------------------------------------
+def get_deleted():
+    return _read_json(DELETED_KEY, [])
+
+
+def is_deleted(openid):
+    return any(d.get("openid") == openid for d in get_deleted())
+
+
 def _find_by_id(collection, mid):
     """在集合中按 member_id 查找目标项。返回 (target_item, rest_items)。"""
     target = next((item for item in collection
@@ -201,19 +213,63 @@ def restore_from_blacklist(mid):
 
 def delete_from_blacklist(mid):
     """按成员 id 把某人从黑名单彻底删除（openid 一并丢弃）。返回 (ok, nickname)。"""
-    bl = get_blacklist()
-    target, bl = _find_by_id(bl, mid)
-    if not target:
-        return False, ""
-    _write_json(BLACKLIST_KEY, bl)
-    return True, target.get("nickname", "")
+    return delete_permanently(mid, from_blacklist=True)
 
 
 def delete_user(mid):
-    """按成员 id 直接从名册删除某人（不经过黑名单）。返回 (ok, nickname)。"""
+    """按成员 id 从名册移到已删除列表（软删除，保留 openid）。返回 (ok, nickname)。"""
     users = get_users()
     target, users = _find_by_id(users, mid)
     if not target:
         return False, ""
+    deleted = get_deleted()
+    import time as _t
+    if not any(d.get("openid") == target.get("openid") for d in deleted):
+        deleted.append({
+            "openid": target.get("openid", ""),
+            "nickname": target.get("nickname", "未命名"),
+            "deleted_at": _t.strftime("%Y-%m-%d %H:%M:%S", _t.localtime()),
+        })
     _write_json(USERS_KEY, users)
+    _write_json(DELETED_KEY, deleted)
+    return True, target.get("nickname", "")
+
+
+def restore_from_deleted(mid):
+    """按成员 id 把某人从已删除列表恢复为正常成员。返回 (ok, nickname)。"""
+    deleted = get_deleted()
+    target, deleted = _find_by_id(deleted, mid)
+    if not target:
+        return False, ""
+    _write_json(DELETED_KEY, deleted)
+    add_user(target.get("openid", ""), target.get("nickname", "未命名"))
+    return True, target.get("nickname", "")
+
+
+def restore_deleted_by_openid(openid):
+    """按 openid 把某人从已删除列表恢复为正常成员（自助重新注册走这条）。
+
+    沿用 deleted.json 里的旧昵称，不采用学校系统返回的新名字，
+    这样 history.json（按昵称关联）里的历史记录才能继续对上。
+    返回 (ok, nickname, total)。
+    """
+    deleted = get_deleted()
+    target = next((d for d in deleted if d.get("openid") == openid), None)
+    if not target:
+        return False, "", 0
+    nickname = target.get("nickname", "未命名")
+    rest = [d for d in deleted if d.get("openid") != openid]
+    _write_json(DELETED_KEY, rest)
+    _created, total = add_user(openid, nickname)
+    return True, nickname, total
+
+
+def delete_permanently(mid, from_blacklist=True):
+    """按成员 id 从黑名单或已删除列表彻底删除（openid 一并丢弃）。返回 (ok, nickname)。"""
+    collection = get_blacklist() if from_blacklist else get_deleted()
+    target, collection = _find_by_id(collection, mid)
+    if not target:
+        return False, ""
+    key = BLACKLIST_KEY if from_blacklist else DELETED_KEY
+    _write_json(key, collection)
     return True, target.get("nickname", "")

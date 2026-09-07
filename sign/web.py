@@ -130,7 +130,7 @@ def handle(event):
     if path == "/api/members":
         return _resp(200, _build_members_view())
     if path == "/api/blacklist":
-        return _resp(200, _build_blacklist_view())
+        return _resp(200, _build_inactive_view())
     if path == "/api/user":
         name = (query.get("name") or "").strip()
         if not name:
@@ -146,6 +146,10 @@ def handle(event):
         return _admin_op(body, "delete")
     if path == "/api/member/delete" and method == "POST":
         return _admin_op(body, "member_delete")
+    if path == "/api/deleted/restore" and method == "POST":
+        return _admin_op(body, "deleted_restore")
+    if path == "/api/deleted/purge" and method == "POST":
+        return _admin_op(body, "deleted_purge")
     if path == "/api/signing" and method == "POST":
         return _set_signing_enabled(body)
     if path == "/register" and method == "POST":
@@ -187,6 +191,10 @@ def _admin_op(body, op):
         ok, nick = oss_store.delete_from_blacklist(mid)
     elif op == "member_delete":
         ok, nick = oss_store.delete_user(mid)
+    elif op == "deleted_restore":
+        ok, nick = oss_store.restore_from_deleted(mid)
+    elif op == "deleted_purge":
+        ok, nick = oss_store.delete_permanently(mid, from_blacklist=False)
     else:
         return _resp(400, {"error": "未知操作"})
     if not ok:
@@ -232,9 +240,17 @@ def _register(body):
     if not openid:
         return _resp(400, {"error": "缺少 openid"})
 
-    # 黑名单 openid 拒绝注册
+    # 黑名单 openid 拒绝注册（被拉黑的人无法自己恢复）
     if oss_store.is_blacklisted(openid):
         return _resp(403, {"error": "该用户已被拉黑，无法注册"})
+
+    # 已删除的成员重新注册即自动恢复，沿用旧昵称以接上历史记录
+    if oss_store.is_deleted(openid):
+        ok, old_nickname, total = oss_store.restore_deleted_by_openid(openid)
+        if ok:
+            return _resp(200, {"ok": True, "created": False, "restored": True,
+                               "total": total, "nickname": old_nickname,
+                               "signing_enabled": oss_store.get_signing_enabled()})
 
     # 用 openid 登录，自动取真实姓名；登录失败说明 openid 无效，当场拒绝
     import sign_core
@@ -287,15 +303,17 @@ def _build_members_view(strip_days=7):
     """成员摘要列表（轻量）：每人今日状态 + 近 strip_days 天迷你条 + 计数。"""
     users = oss_store.get_users()
     bl = oss_store.get_blacklist()
+    deleted = oss_store.get_deleted()
     history = oss_store.get_history()
     today = time.strftime("%Y-%m-%d", time.localtime())
     best = _compute_best(history)
 
-    # 成员 + 历史孤儿，但排除黑名单
+    # 成员 + 历史孤儿，但排除黑名单和已删除
     bl_nicks = {b.get("nickname") for b in bl}
+    deleted_nicks = {d.get("nickname") for d in deleted}
     nicknames = [(u.get("nickname", "未命名"), u.get("openid", "")) for u in users]
     for (nick, _d) in best:
-        if nick not in [n for n, _ in nicknames] and nick not in bl_nicks:
+        if nick not in [n for n, _ in nicknames] and nick not in bl_nicks and nick not in deleted_nicks:
             nicknames.append((nick, ""))
 
     strip_win = _window(strip_days)
@@ -349,8 +367,13 @@ def _build_members_view(strip_days=7):
     }
 
 
-def _build_blacklist_view(strip_days=7):
-    """黑名单视图（供管理员或查看者看）。"""
+def _build_inactive_view(strip_days=7):
+    """非活跃成员视图：黑名单 + 已删除（供管理员查看）。
+
+    两类人都保留 openid 与历史；区别在能否自助回归：
+      blacklisted —— 注册接口拒绝，只能管理员手动恢复
+      deleted     —— 重新注册即自动恢复（沿用旧昵称）
+    """
     bl = oss_store.get_blacklist()
     history = oss_store.get_history()
     today = time.strftime("%Y-%m-%d", time.localtime())
@@ -384,6 +407,7 @@ def _build_blacklist_view(strip_days=7):
         items.append({
             "id": oss_store.member_id(openid, nick),
             "nickname": nick,
+            "status_type": "blacklisted",
             "today_status": today_status,
             "today_time": today_time,
             "strip": strip,
@@ -392,7 +416,43 @@ def _build_blacklist_view(strip_days=7):
             "blocked_at": b.get("blocked_at", ""),
         })
 
-    return {"blacklist": items}
+    # 已删除成员
+    for item in oss_store.get_deleted():
+        nick = item.get("nickname", "未命名")
+        openid = item.get("openid", "")
+        ok_days = fail_days = 0
+        for (n, _d), rec in best.items():
+            if n != nick:
+                continue
+            st = rec.get("status")
+            if st == "ok":
+                ok_days += 1
+            elif st in ("login_failed", "error"):
+                fail_days += 1
+
+        today_rec = best.get((nick, today))
+        today_status = today_rec.get("status") if today_rec else "pending"
+        today_time = today_rec.get("time", "") if today_rec else ""
+
+        strip = []
+        for d in reversed(strip_win):
+            rec = best.get((nick, d))
+            strip.append(rec.get("status") if rec
+                         else ("pending" if d == today else None))
+
+        items.append({
+            "id": oss_store.member_id(openid, nick),
+            "nickname": nick,
+            "status_type": "deleted",
+            "today_status": today_status,
+            "today_time": today_time,
+            "strip": strip,
+            "ok_days": ok_days,
+            "fail_days": fail_days,
+            "deleted_at": item.get("deleted_at", ""),
+        })
+
+    return {"inactive": items}
 
 
 def _build_user_view(name, days=CALENDAR_DAYS):

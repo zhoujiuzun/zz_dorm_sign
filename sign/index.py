@@ -42,7 +42,8 @@ def run_minute_sign():
     每分钟触发：只签"专属时刻 = 当前这一分钟"的人。
     大多数分钟无人匹配，直接空跑退出。
 
-    注意：拉黑的成员已从 users.json 移到 blacklist.json，get_users() 不含黑名单。
+    注意：拉黑的成员已移到 blacklist.json、删除的成员已移到 deleted.json，
+    两者都不在 users.json 里，所以 get_users() 天然只含活跃成员，无需额外过滤。
     """
     if not oss_store.get_signing_enabled():
         return {"due": 0, "ok": 0, "skipped": "signing_disabled"}
