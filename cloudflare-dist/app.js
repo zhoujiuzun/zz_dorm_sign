@@ -77,7 +77,7 @@ document.getElementById("name-verify-btn").onclick = () => {
         hideNameVerify();
         document.getElementById("main-content").hidden = false;
         document.getElementById("overview").hidden = true; // 普通用户隐藏总览
-        document.getElementById("show-login-btn").hidden = true;
+        document.getElementById("show-login-btn").hidden = false; // 保留登录按钮
         document.getElementById("tabs").hidden = true;
         document.getElementById("search").hidden = true;
         load();
@@ -129,8 +129,7 @@ document.getElementById("login-btn").onclick = () => {
       state.token = d.token;
       state.isAdmin = true;
       state.verifiedName = "";
-      // 清除普通用户的记忆
-      localStorage.removeItem("verified_name");
+      // 不清除普通用户记忆
       hideLogin();
       document.getElementById("main-content").hidden = false;
       document.getElementById("overview").hidden = false; // 管理员显示总览
@@ -151,18 +150,43 @@ document.getElementById("login-cancel").onclick = hideLogin;
 document.getElementById("logout-btn").onclick = () => {
   state.token = "";
   state.isAdmin = false;
-  state.verifiedName = "";
   state.user = null;
   state.userData = null;
-  // 清除记忆的姓名
-  localStorage.removeItem("verified_name");
+  // 不清除记忆的姓名，退出后自动恢复普通用户视图
   document.getElementById("main-content").hidden = true;
   document.getElementById("overview").hidden = true;
   document.getElementById("show-login-btn").hidden = false;
   document.getElementById("signing-toggle-btn").hidden = true;
   document.getElementById("logout-btn").hidden = true;
   document.getElementById("usercard").hidden = true;
-  showNameVerify();
+
+  // 如果有保存的姓名，自动加载
+  const savedName = localStorage.getItem("verified_name");
+  if (savedName) {
+    fetch(API_BASE + "/api/user?name=" + encodeURIComponent(savedName))
+      .then(r => r.json())
+      .then(d => {
+        if (d.nickname === savedName) {
+          state.verifiedName = savedName;
+          state.isAdmin = false;
+          document.getElementById("main-content").hidden = false;
+          document.getElementById("overview").hidden = true;
+          document.getElementById("show-login-btn").hidden = false;
+          document.getElementById("tabs").hidden = true;
+          document.getElementById("search").hidden = true;
+          load();
+          selectUser(savedName);
+        } else {
+          localStorage.removeItem("verified_name");
+          showNameVerify();
+        }
+      })
+      .catch(() => {
+        showNameVerify();
+      });
+  } else {
+    showNameVerify();
+  }
 };
 
 // PLACEHOLDER_RENDER
@@ -575,7 +599,7 @@ if (savedName) {
         state.isAdmin = false;
         document.getElementById("main-content").hidden = false;
         document.getElementById("overview").hidden = true;
-        document.getElementById("show-login-btn").hidden = true;
+        document.getElementById("show-login-btn").hidden = false; // 保留登录按钮
         document.getElementById("tabs").hidden = true;
         document.getElementById("search").hidden = true;
         document.getElementById("name-verify-mask").hidden = true;
