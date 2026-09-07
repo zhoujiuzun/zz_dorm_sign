@@ -310,6 +310,25 @@ def _window(days):
             for i in range(days)]
 
 
+def _counts_by_nick(best):
+    """一次遍历 best，聚合每人的 (ok_days, fail_days)。
+
+    替代原先"每个成员再各自全表扫描一遍 best"的做法：那样是
+    O(成员数² × 历史天数)，几百人规模下单次请求上千万次迭代；
+    这里一趟 O(成员数 × 天数) 算好，成员循环里直接查表。
+    """
+    counts = {}
+    for (nick, _d), rec in best.items():
+        ok_days, fail_days = counts.get(nick, (0, 0))
+        st = rec.get("status")
+        if st == "ok":
+            ok_days += 1
+        elif st in ("login_failed", "error"):
+            fail_days += 1
+        counts[nick] = (ok_days, fail_days)
+    return counts
+
+
 def _scheduled(openid, date_str):
     """该人该天的预定签到时刻 HH:MM；无 openid（历史孤儿）返回空。"""
     if not openid:
@@ -343,18 +362,11 @@ def _build_members_view(strip_days=7):
             known_nicks.add(nick)
 
     strip_win = _window(strip_days)
+    counts = _counts_by_nick(best)
     members = []
     ov_ok = ov_fail = ov_pending = 0
     for nick, openid, is_orphan in nicknames:
-        ok_days = fail_days = 0
-        for (n, _d), rec in best.items():
-            if n != nick:
-                continue
-            st = rec.get("status")
-            if st == "ok":
-                ok_days += 1
-            elif st in ("login_failed", "error"):
-                fail_days += 1
+        ok_days, fail_days = counts.get(nick, (0, 0))
 
         today_rec = best.get((nick, today))
         today_status = today_rec.get("status") if today_rec else "pending"
@@ -406,20 +418,13 @@ def _build_inactive_view(strip_days=7):
     today = time.strftime("%Y-%m-%d", time.localtime())
     best = _compute_best(history)
     strip_win = _window(strip_days)
+    counts = _counts_by_nick(best)
 
     items = []
     for b in bl:
         nick = b.get("nickname", "未命名")
         openid = b.get("openid", "")
-        ok_days = fail_days = 0
-        for (n, _d), rec in best.items():
-            if n != nick:
-                continue
-            st = rec.get("status")
-            if st == "ok":
-                ok_days += 1
-            elif st in ("login_failed", "error"):
-                fail_days += 1
+        ok_days, fail_days = counts.get(nick, (0, 0))
 
         today_rec = best.get((nick, today))
         today_status = today_rec.get("status") if today_rec else "pending"
@@ -447,15 +452,7 @@ def _build_inactive_view(strip_days=7):
     for item in oss_store.get_deleted():
         nick = item.get("nickname", "未命名")
         openid = item.get("openid", "")
-        ok_days = fail_days = 0
-        for (n, _d), rec in best.items():
-            if n != nick:
-                continue
-            st = rec.get("status")
-            if st == "ok":
-                ok_days += 1
-            elif st in ("login_failed", "error"):
-                fail_days += 1
+        ok_days, fail_days = counts.get(nick, (0, 0))
 
         today_rec = best.get((nick, today))
         today_status = today_rec.get("status") if today_rec else "pending"

@@ -11,9 +11,15 @@ FC 内凭函数计算的 RAM 角色临时凭据访问，走内网 endpoint（免
 
 import os
 import json
+import time
 import hashlib
 
 import oss2
+
+
+def _now():
+    """本地时区的 'YYYY-MM-DD HH:MM:SS' 时间戳。"""
+    return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
 
 BUCKET_NAME = os.environ.get("OSS_BUCKET", "zhouhuanzhang")
 # 内网 endpoint：FC 与 OSS 同处 cn-beijing 时走这个，免流量费
@@ -103,11 +109,10 @@ def add_user(openid, nickname):
             u["nickname"] = nickname
             _write_json(USERS_KEY, users)
             return False, len(users)
-    import time as _t
     users.append({
         "openid": openid,
         "nickname": nickname,
-        "created": _t.strftime("%Y-%m-%d %H:%M:%S", _t.localtime()),
+        "created": _now(),
     })
     _write_json(USERS_KEY, users)
     return True, len(users)
@@ -142,10 +147,9 @@ def get_signing_enabled():
 
 def set_signing_enabled(enabled):
     """更新全局自动签到开关。"""
-    import time as _t
     return _write_json(SETTINGS_KEY, {
         "signing_enabled": bool(enabled),
-        "updated_at": _t.strftime("%Y-%m-%d %H:%M:%S", _t.localtime()),
+        "updated_at": _now(),
     })
 
 
@@ -188,12 +192,11 @@ def move_to_blacklist(mid):
     if not target:
         return False, ""
     bl = get_blacklist()
-    import time as _t
     if not any(b.get("openid") == target.get("openid") for b in bl):
         bl.append({
             "openid": target.get("openid", ""),
             "nickname": target.get("nickname", "未命名"),
-            "blocked_at": _t.strftime("%Y-%m-%d %H:%M:%S", _t.localtime()),
+            "blocked_at": _now(),
         })
     _write_json(USERS_KEY, users)
     _write_json(BLACKLIST_KEY, bl)
@@ -223,12 +226,11 @@ def delete_user(mid):
     if not target:
         return False, ""
     deleted = get_deleted()
-    import time as _t
     if not any(d.get("openid") == target.get("openid") for d in deleted):
         deleted.append({
             "openid": target.get("openid", ""),
             "nickname": target.get("nickname", "未命名"),
-            "deleted_at": _t.strftime("%Y-%m-%d %H:%M:%S", _t.localtime()),
+            "deleted_at": _now(),
         })
     _write_json(USERS_KEY, users)
     _write_json(DELETED_KEY, deleted)
@@ -267,11 +269,10 @@ def hide_orphan(nickname):
     deleted = get_deleted()
     if any(d.get("nickname") == nickname for d in deleted):
         return True, nickname          # 已经藏起来了，幂等返回
-    import time as _t
     deleted.append({
         "openid": "",
         "nickname": nickname,
-        "deleted_at": _t.strftime("%Y-%m-%d %H:%M:%S", _t.localtime()),
+        "deleted_at": _now(),
         "orphan": True,
     })
     if not _write_json(DELETED_KEY, deleted):

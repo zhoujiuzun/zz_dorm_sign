@@ -111,34 +111,6 @@ HEADERS_TEMPLATE = {
 }
 
 
-# ------------------------------------------------------------------
-# JWT / 签名工具
-# ------------------------------------------------------------------
-def decode_jwt(token):
-    try:
-        payload_b64 = token.split('.')[1]
-        padding = 4 - len(payload_b64) % 4
-        if padding != 4:
-            payload_b64 += '=' * padding
-        return json.loads(base64.urlsafe_b64decode(payload_b64))
-    except Exception:
-        return None
-
-
-def get_token_expiry(token):
-    payload = decode_jwt(token)
-    if payload and "exp" in payload:
-        return payload["exp"]
-    return None
-
-
-def is_token_expired(token, buffer=300):
-    exp = get_token_expiry(token)
-    if exp is None:
-        return False
-    return time.time() >= exp - buffer
-
-
 def generate_sign(url, timestamp, token):
     parsed = urlparse(url)
     url_path = parsed.path
