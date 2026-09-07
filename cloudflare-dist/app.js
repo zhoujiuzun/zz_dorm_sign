@@ -107,14 +107,61 @@ document.getElementById("name-input").onkeypress = (e) => {
 function showLogin() {
   document.getElementById("login-mask").hidden = false;
   document.getElementById("login-err").textContent = "";
+  document.getElementById("switch-user-err").textContent = "";
   document.getElementById("login-user").value = "";
   document.getElementById("login-pass").value = "";
+  document.getElementById("switch-user-name").value = "";
 }
 function hideLogin() {
   document.getElementById("login-mask").hidden = true;
 }
 
 document.getElementById("show-login-btn").onclick = showLogin;
+
+// 切换到其他普通用户
+document.getElementById("switch-user-btn").onclick = () => {
+  const name = document.getElementById("switch-user-name").value.trim();
+  const err = document.getElementById("switch-user-err");
+  if (!name) {
+    err.textContent = "请输入姓名";
+    return;
+  }
+  // 验证姓名是否存在
+  fetch(API_BASE + "/api/user?name=" + encodeURIComponent(name))
+    .then(r => r.json())
+    .then(d => {
+      if (d.nickname === name) {
+        // 如果当前是管理员，先退出管理员模式
+        state.token = "";
+        state.isAdmin = false;
+        state.verifiedName = name;
+        // 更新 localStorage
+        localStorage.setItem("verified_name", name);
+        hideLogin();
+        document.getElementById("main-content").hidden = false;
+        document.getElementById("overview").hidden = true;
+        document.getElementById("show-login-btn").hidden = false;
+        document.getElementById("signing-toggle-btn").hidden = true;
+        document.getElementById("logout-btn").hidden = true;
+        document.getElementById("tabs").hidden = true;
+        document.getElementById("search").hidden = true;
+        load();
+        selectUser(name);
+        showToast(`已切换到「${name}」`);
+      } else {
+        err.textContent = "未找到该姓名，请确认后重试";
+      }
+    })
+    .catch(() => {
+      err.textContent = "未找到该姓名，请确认后重试";
+    });
+};
+
+document.getElementById("switch-user-name").onkeypress = (e) => {
+  if (e.key === "Enter") {
+    document.getElementById("switch-user-btn").click();
+  }
+};
 
 document.getElementById("login-btn").onclick = () => {
   const user = document.getElementById("login-user").value.trim();

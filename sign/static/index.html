@@ -25,19 +25,32 @@
       <input type="text" id="name-input" placeholder="请输入您的姓名" autocomplete="off">
       <button id="name-verify-btn" class="btn-primary">查看我的签到</button>
       <div class="login-err" id="name-verify-err"></div>
-      <button id="name-verify-admin" class="btn-link">管理员登录</button>
     </div>
   </div>
 
-  <!-- 登录弹窗 -->
+  <!-- 登录/切换用户弹窗 -->
   <div class="login-mask" id="login-mask" hidden>
     <div class="login-box">
-      <h2>管理员登录</h2>
-      <input type="text" id="login-user" placeholder="用户名" autocomplete="username">
-      <input type="password" id="login-pass" placeholder="密码" autocomplete="current-password">
-      <button id="login-btn" class="btn-primary">登录</button>
-      <div class="login-err" id="login-err"></div>
-      <button id="login-cancel" class="btn-link">取消</button>
+      <h2>登录/切换用户</h2>
+
+      <!-- 切换到其他普通用户 -->
+      <div style="margin-bottom: 24px; padding-bottom: 24px; border-bottom: 1px solid #eee;">
+        <h3 style="font-size: 16px; margin-bottom: 12px;">切换到其他用户</h3>
+        <input type="text" id="switch-user-name" placeholder="输入用户姓名" autocomplete="off" style="margin-bottom: 8px;">
+        <button id="switch-user-btn" class="btn-primary">切换</button>
+        <div class="login-err" id="switch-user-err"></div>
+      </div>
+
+      <!-- 管理员登录 -->
+      <div>
+        <h3 style="font-size: 16px; margin-bottom: 12px;">管理员登录</h3>
+        <input type="text" id="login-user" placeholder="管理员账号" autocomplete="username" style="margin-bottom: 8px;">
+        <input type="password" id="login-pass" placeholder="密码" autocomplete="current-password" style="margin-bottom: 8px;">
+        <button id="login-btn" class="btn-primary">登录</button>
+        <div class="login-err" id="login-err"></div>
+      </div>
+
+      <button id="login-cancel" class="btn-link" style="margin-top: 16px;">取消</button>
     </div>
   </div>
 
