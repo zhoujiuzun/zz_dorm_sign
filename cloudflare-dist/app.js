@@ -72,9 +72,11 @@ document.getElementById("name-verify-btn").onclick = () => {
       if (d.nickname === name) {
         state.verifiedName = name;
         state.isAdmin = false;
+        // 保存到 localStorage
+        localStorage.setItem("verified_name", name);
         hideNameVerify();
         document.getElementById("main-content").hidden = false;
-        document.getElementById("overview").hidden = false;
+        document.getElementById("overview").hidden = true; // 普通用户隐藏总览
         document.getElementById("show-login-btn").hidden = true;
         document.getElementById("tabs").hidden = true;
         document.getElementById("search").hidden = true;
@@ -127,9 +129,11 @@ document.getElementById("login-btn").onclick = () => {
       state.token = d.token;
       state.isAdmin = true;
       state.verifiedName = "";
+      // 清除普通用户的记忆
+      localStorage.removeItem("verified_name");
       hideLogin();
       document.getElementById("main-content").hidden = false;
-      document.getElementById("overview").hidden = false;
+      document.getElementById("overview").hidden = false; // 管理员显示总览
       document.getElementById("show-login-btn").hidden = true;
       document.getElementById("signing-toggle-btn").hidden = false;
       document.getElementById("logout-btn").hidden = false;
@@ -150,6 +154,8 @@ document.getElementById("logout-btn").onclick = () => {
   state.verifiedName = "";
   state.user = null;
   state.userData = null;
+  // 清除记忆的姓名
+  localStorage.removeItem("verified_name");
   document.getElementById("main-content").hidden = true;
   document.getElementById("overview").hidden = true;
   document.getElementById("show-login-btn").hidden = false;
@@ -556,8 +562,40 @@ if (searchBox) searchBox.oninput = () => {
   else renderBlacklist();
 };
 
-// 启动时显示姓名验证界面
-showNameVerify();
+// 启动时显示姓名验证界面，或自动加载已保存的姓名
+const savedName = localStorage.getItem("verified_name");
+if (savedName) {
+  // 验证保存的姓名是否仍然有效
+  fetch(API_BASE + "/api/user?name=" + encodeURIComponent(savedName))
+    .then(r => r.json())
+    .then(d => {
+      if (d.nickname === savedName) {
+        // 姓名仍然有效，自动登录
+        state.verifiedName = savedName;
+        state.isAdmin = false;
+        document.getElementById("main-content").hidden = false;
+        document.getElementById("overview").hidden = true;
+        document.getElementById("show-login-btn").hidden = true;
+        document.getElementById("tabs").hidden = true;
+        document.getElementById("search").hidden = true;
+        document.getElementById("name-verify-mask").hidden = true;
+        load();
+        selectUser(savedName);
+      } else {
+        // 姓名失效，清除并显示验证界面
+        localStorage.removeItem("verified_name");
+        showNameVerify();
+      }
+    })
+    .catch(() => {
+      // 网络错误，清除并显示验证界面
+      localStorage.removeItem("verified_name");
+      showNameVerify();
+    });
+} else {
+  showNameVerify();
+}
+
 setInterval(() => {
   if (state.isAdmin || state.verifiedName) {
     load();
