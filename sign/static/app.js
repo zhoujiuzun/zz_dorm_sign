@@ -204,8 +204,6 @@ document.getElementById("login-btn").onclick = () => {
   }).catch(() => { err.textContent = "网络错误"; });
 };
 
-document.getElementById("login-cancel").onclick = hideLogin;
-
 document.getElementById("login-cancel-user").onclick = hideLogin;
 document.getElementById("login-cancel-admin").onclick = hideLogin;
 
@@ -610,7 +608,10 @@ function load() {
     .then(d => {
       state.members = d;
       state.signingEnabled = d.signing_enabled !== false;
-      renderOverview();
+      // 只有管理员才渲染总览
+      if (state.isAdmin) {
+        renderOverview();
+      }
       if (state.view === "members") renderMembers();
       // 已选中的人，刷新其日历
       if (state.user && d.members.some(m => m.nickname === state.user)) {
