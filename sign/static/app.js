@@ -344,12 +344,14 @@ function _renderMemberCard(m, isBlacklist) {
     timeLine = `<span class="m-time">预定 ${esc(m.scheduled_time)}</span>`;
   }
 
-  // 非活跃成员：用图标 + 文字标明是被拉黑还是被删除
+  // 状态标签：非活跃成员标明拉黑/删除，孤儿标明是旧数据残留
   let stateTag = "";
   if (m.status_type === "blacklisted") {
     stateTag = `<span class="m-state-tag">🚫 已拉黑</span>`;
   } else if (m.status_type === "deleted") {
     stateTag = `<span class="m-state-tag">🗑️ 已删除</span>`;
+  } else if (m.orphan) {
+    stateTag = `<span class="m-state-tag warn">⚠️ 历史残留</span>`;
   }
 
   const el = document.createElement("div");
@@ -374,13 +376,17 @@ function _renderMemberCard(m, isBlacklist) {
       const isDeleted = m.status_type === "deleted";
       const btns = document.createElement("div");
       btns.className = "bl-btns";
-      const restore = document.createElement("button");
-      restore.className = "btn-primary btn-sm";
-      restore.textContent = "恢复";
-      restore.onclick = e => {
-        e.stopPropagation();
-        isDeleted ? restoreDeleted(m.id, m.nickname) : restoreMember(m.id, m.nickname);
-      };
+      // 孤儿没有 openid，恢复出来也签不了到，只给"彻底删除"
+      if (!m.orphan) {
+        const restore = document.createElement("button");
+        restore.className = "btn-primary btn-sm";
+        restore.textContent = "恢复";
+        restore.onclick = e => {
+          e.stopPropagation();
+          isDeleted ? restoreDeleted(m.id, m.nickname) : restoreMember(m.id, m.nickname);
+        };
+        btns.appendChild(restore);
+      }
       const del = document.createElement("button");
       del.className = "btn-danger btn-sm";
       del.textContent = "彻底删除";
@@ -388,8 +394,17 @@ function _renderMemberCard(m, isBlacklist) {
         e.stopPropagation();
         isDeleted ? purgeDeleted(m.id, m.nickname) : deleteMember(m.id, m.nickname);
       };
-      btns.appendChild(restore);
       btns.appendChild(del);
+      el.appendChild(btns);
+    } else if (m.orphan) {
+      // 历史孤儿：openid 已丢失，拉黑/删除都定位不到它，只能清除列表条目
+      const btns = document.createElement("div");
+      btns.className = "bl-btns";
+      const hide = document.createElement("button");
+      hide.className = "btn-danger btn-sm";
+      hide.textContent = "清除残留";
+      hide.onclick = e => { e.stopPropagation(); hideOrphan(m.nickname); };
+      btns.appendChild(hide);
       el.appendChild(btns);
     } else {
       const btns = document.createElement("div");
@@ -499,6 +514,26 @@ function deleteMember(id, nick) {
   }).then(r => r.json()).then(d => {
     if (d.ok) {
       showToast(`已删除「${nick}」`);
+      load();
+    } else {
+      alert(d.error || "操作失败");
+    }
+  }).catch(() => alert("网络错误"));
+}
+
+function hideOrphan(nick) {
+  if (!confirm(`清除「${nick}」的列表残留？\n\n该成员的账号信息在早期删除时已丢失，只剩历史签到记录。清除后不再显示在列表中，历史记录保留。`)) return;
+  fetch(API_BASE + "/api/orphan/hide", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({token: state.token, nickname: nick}),
+  }).then(r => r.json()).then(d => {
+    if (d.ok) {
+      showToast(`已清除「${nick}」`);
+      if (state.user === nick) {
+        state.user = null;
+        document.getElementById("usercard").hidden = true;
+      }
       load();
     } else {
       alert(d.error || "操作失败");

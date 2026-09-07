@@ -246,6 +246,39 @@ def restore_from_deleted(mid):
     return True, target.get("nickname", "")
 
 
+def hide_orphan(nickname):
+    """把历史孤儿写进 deleted.json，使其从成员列表消失（历史记录保留）。
+
+    孤儿是早期"硬删除"的遗留：openid 已随记录一起丢失，只剩 history.json
+    里的签到流水，昵称因此被 _build_members_view 当作成员捞回列表。
+    这类条目无法用 member_id 定位到任何名单，只能按昵称处理。
+
+    openid 留空——真人若再来注册，会因 openid 对不上而按新人走注册流程，
+    但沿用同一昵称，历史记录仍能对上。返回 (ok, nickname)。
+    """
+    nickname = (nickname or "").strip()
+    if not nickname:
+        return False, ""
+    # 已在名册/黑名单里的人不是孤儿，拒绝，避免误把活跃成员藏掉
+    if any(u.get("nickname") == nickname for u in get_users()):
+        return False, ""
+    if any(b.get("nickname") == nickname for b in get_blacklist()):
+        return False, ""
+    deleted = get_deleted()
+    if any(d.get("nickname") == nickname for d in deleted):
+        return True, nickname          # 已经藏起来了，幂等返回
+    import time as _t
+    deleted.append({
+        "openid": "",
+        "nickname": nickname,
+        "deleted_at": _t.strftime("%Y-%m-%d %H:%M:%S", _t.localtime()),
+        "orphan": True,
+    })
+    if not _write_json(DELETED_KEY, deleted):
+        return False, ""
+    return True, nickname
+
+
 def restore_deleted_by_openid(openid):
     """按 openid 把某人从已删除列表恢复为正常成员（自助重新注册走这条）。
 

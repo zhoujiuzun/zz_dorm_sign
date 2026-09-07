@@ -150,6 +150,8 @@ def handle(event):
         return _admin_op(body, "deleted_restore")
     if path == "/api/deleted/purge" and method == "POST":
         return _admin_op(body, "deleted_purge")
+    if path == "/api/orphan/hide" and method == "POST":
+        return _hide_orphan(body)
     if path == "/api/signing" and method == "POST":
         return _set_signing_enabled(body)
     if path == "/register" and method == "POST":
@@ -199,6 +201,23 @@ def _admin_op(body, op):
         return _resp(400, {"error": "未知操作"})
     if not ok:
         return _resp(404, {"error": "未找到该成员"})
+    return _resp(200, {"ok": True, "nickname": nick})
+
+
+def _hide_orphan(body):
+    """把历史孤儿从成员列表隐藏（按昵称，孤儿没有 openid 可用）。"""
+    try:
+        data = json.loads(body) if body else {}
+    except Exception:
+        return _resp(400, {"error": "请求体非法 JSON"})
+    if not _check_token(data):
+        return _resp(403, {"error": "未授权，请先登录"})
+    nickname = (data.get("nickname") or "").strip()
+    if not nickname:
+        return _resp(400, {"error": "缺少昵称"})
+    ok, nick = oss_store.hide_orphan(nickname)
+    if not ok:
+        return _resp(400, {"error": "该成员不是历史孤儿，或保存失败"})
     return _resp(200, {"ok": True, "nickname": nick})
 
 
@@ -309,17 +328,24 @@ def _build_members_view(strip_days=7):
     best = _compute_best(history)
 
     # 成员 + 历史孤儿，但排除黑名单和已删除
+    #
+    # 孤儿 = history.json 里有记录、却不在任何名单里的昵称。多为早期"硬删除"
+    # 的遗留：记录连 openid 一起被抹掉，历史却留着，于是昵称又被捞回列表。
+    # 这类条目 openid 为空，无法参与签到，也无法用 member_id 定位到任何名单，
+    # 因此标记 orphan=True，前端只给它"清除记录"这一个操作。
     bl_nicks = {b.get("nickname") for b in bl}
     deleted_nicks = {d.get("nickname") for d in deleted}
-    nicknames = [(u.get("nickname", "未命名"), u.get("openid", "")) for u in users]
+    known_nicks = {u.get("nickname", "未命名") for u in users}
+    nicknames = [(u.get("nickname", "未命名"), u.get("openid", ""), False) for u in users]
     for (nick, _d) in best:
-        if nick not in [n for n, _ in nicknames] and nick not in bl_nicks and nick not in deleted_nicks:
-            nicknames.append((nick, ""))
+        if nick not in known_nicks and nick not in bl_nicks and nick not in deleted_nicks:
+            nicknames.append((nick, "", True))
+            known_nicks.add(nick)
 
     strip_win = _window(strip_days)
     members = []
     ov_ok = ov_fail = ov_pending = 0
-    for nick, openid in nicknames:
+    for nick, openid, is_orphan in nicknames:
         ok_days = fail_days = 0
         for (n, _d), rec in best.items():
             if n != nick:
@@ -350,6 +376,7 @@ def _build_members_view(strip_days=7):
         members.append({
             "id": oss_store.member_id(openid, nick),
             "nickname": nick,
+            "orphan": is_orphan,
             "today_status": today_status,
             "today_time": today_time,
             "scheduled_time": _scheduled(openid, today),
@@ -444,6 +471,8 @@ def _build_inactive_view(strip_days=7):
             "id": oss_store.member_id(openid, nick),
             "nickname": nick,
             "status_type": "deleted",
+            # 无 openid 的孤儿恢复出来也签不了到，前端据此只留"彻底删除"
+            "orphan": not openid,
             "today_status": today_status,
             "today_time": today_time,
             "strip": strip,
