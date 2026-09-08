@@ -389,7 +389,7 @@ function _renderMemberCard(m, isBlacklist) {
       // 非活跃成员：恢复 + 删除（完全复刻活跃用户的按钮结构）
       if (!m.orphan) {
         const restore = document.createElement("button");
-        restore.className = "btn-danger btn-sm";
+        restore.className = "btn-primary btn-sm";
         restore.textContent = "恢复";
         restore.onclick = e => {
           e.stopPropagation();
