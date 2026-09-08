@@ -1,51 +1,13 @@
-# 敏感信息
-.env
-deploy.ps1
-docs/AK-SK凭据.txt
-docs/私密信息汇总.md
+# ============================================================
+# 本仓库只用于向 Cloudflare Pages 同步前端 cloudflare-dist/
+# 其余全部本地保留、不入库（后端 sign/、部署 s.yaml、采集 capture/、
+# 文档 docs/、工具 tools/ 等仅存于本地磁盘；FC 从本地打包，不依赖 GitHub）
+# 做法：先忽略一切，再显式放行 cloudflare-dist/
+# ============================================================
 
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
+# 忽略所有
+/*
 
-# 虚拟环境
-.mitm-venv/
-venv/
-env/
-
-# 构建产物
-build/
-dist/
-*.spec
-*.exe
-*.zip
-
-# 调试文件
-.captured_openid
-.openid_debug
-capture/.captured_openid
-capture/.openid_debug
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Serverless Devs
-.s/
-
-# 临时文件
-*.log
-*.tmp
-
-# 前端仅保留 cloudflare-dist（Pages 部署目录）；sign/static 由 FC 本地打包，不入库
-sign/static/
+# 放行前端目录与本文件
+!/.gitignore
+!/cloudflare-dist/
