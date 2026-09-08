@@ -217,7 +217,8 @@ main { max-width: 980px; margin: 0 auto; padding: 20px 14px 0; width: 100%; alig
   font-size: 14.5px; font-weight: 600; color: var(--txt);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.m-badge { flex: none; font-size: 10.5px; padding: 2px 9px; border-radius: 20px; color: #fff; }
+.m-side { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 5px; }
+.m-badge { font-size: 10.5px; padding: 2px 9px; border-radius: 20px; color: #fff; white-space: nowrap; }
 .m-badge.d-ok { background: var(--ok); }
 .m-badge.d-fail { background: var(--fail); }
 .m-badge.d-pending, .m-badge.d-none { background: var(--pending); }
