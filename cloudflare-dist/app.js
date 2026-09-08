@@ -74,6 +74,10 @@ document.getElementById("name-verify-btn").onclick = () => {
         state.isAdmin = false;
         // 保存到 localStorage
         localStorage.setItem("verified_name", name);
+        // 保存用户令牌
+        if (d.user_token) {
+          localStorage.setItem("user_token", d.user_token);
+        }
         hideNameVerify();
         document.getElementById("main-content").hidden = false;
         document.getElementById("overview").hidden = true; // 普通用户隐藏总览
@@ -424,6 +428,16 @@ function _renderMemberCard(m, isBlacklist) {
       btns.appendChild(del);
       el.appendChild(btns);
     }
+  } else if (state.verifiedName && m.nickname === state.verifiedName) {
+    // 普通用户模式：只为自己显示退出按钮
+    const btns = document.createElement("div");
+    btns.className = "bl-btns";
+    const quit = document.createElement("button");
+    quit.className = "btn-danger btn-sm";
+    quit.textContent = "退出";
+    quit.onclick = e => { e.stopPropagation(); quitSelf(); };
+    btns.appendChild(quit);
+    el.appendChild(btns);
   }
 
   el.querySelector(".m-card").onclick = () => selectUser(m.nickname);
@@ -591,6 +605,54 @@ function deleteMemberDirectly(id, nick) {
     }
   }).catch(() => alert("网络错误"));
 }
+
+function quitSelf() {
+  if (!confirm("确定退出自动签到系统吗？\n退出后将停止为你自动签到。\n你可以稍后重新注册恢复。")) return;
+
+  const userToken = localStorage.getItem("user_token");
+  if (!userToken) {
+    alert("登录已过期，请重新验证");
+    // 清除状态，回到验证弹窗
+    localStorage.removeItem("verified_name");
+    localStorage.removeItem("user_token");
+    state.verifiedName = "";
+    document.getElementById("main-content").hidden = true;
+    showNameVerify();
+    return;
+  }
+
+  fetch(API_BASE + "/api/member/self-delete", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({name: state.verifiedName, token: userToken}),
+  }).then(r => {
+    if (r.status === 401) {
+      // 令牌过期
+      alert("登录已过期，请重新验证");
+      localStorage.removeItem("verified_name");
+      localStorage.removeItem("user_token");
+      state.verifiedName = "";
+      document.getElementById("main-content").hidden = true;
+      showNameVerify();
+      return;
+    }
+    return r.json();
+  }).then(d => {
+    if (d && d.ok) {
+      showToast("已退出自动签到系统");
+      // 清除本地状态
+      localStorage.removeItem("verified_name");
+      localStorage.removeItem("user_token");
+      state.verifiedName = "";
+      // 回到姓名验证弹窗
+      document.getElementById("main-content").hidden = true;
+      showNameVerify();
+    } else if (d) {
+      alert(d.error || "操作失败");
+    }
+  }).catch(() => alert("网络错误"));
+}
+
 // PLACEHOLDER_CAL
 function selectUser(name) {
   state.user = name;
