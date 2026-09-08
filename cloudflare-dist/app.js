@@ -739,6 +739,10 @@ function renderCalendar() {
         const s = STATUS[rec.status] || STATUS.pending;
         cls = s.cls;
         title = `${date} ${s.text}${rec.time ? " " + rec.time : ""}`;
+        // 如果有异常信息，添加到 title 中
+        if (rec.message && rec.status in {"login_failed": 1, "error": 1}) {
+          title += `\n${rec.message}`;
+        }
       }
       td.className = "cell" + (date === d.today ? " is-today" : "");
       td.title = title;
