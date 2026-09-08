@@ -96,7 +96,7 @@ body {
 .btn-danger:hover { background: #d8403c; }
 .btn-link { background: transparent; color: var(--accent); padding: 8px 0; }
 .btn-link:hover { text-decoration: underline; }
-.btn-sm { padding: 5px 10px; font-size: 12px; flex-shrink: 0; }
+.btn-sm { padding: 5px 10px; font-size: 12px; flex-shrink: 0; width: auto; }
 
 /* 标签页 */
 .tabs { display: flex; gap: 4px; margin-bottom: 12px; }
