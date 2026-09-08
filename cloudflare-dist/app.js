@@ -348,14 +348,20 @@ function _renderMemberCard(m, isBlacklist) {
     timeLine = `<span class="m-time">预定 ${esc(m.scheduled_time)}</span>`;
   }
 
-  // 状态标签：非活跃成员标明拉黑/删除，孤儿标明是旧数据残留
-  let stateTag = "";
-  if (m.status_type === "blacklisted") {
-    stateTag = `<span class="m-state-tag">🚫 已拉黑</span>`;
-  } else if (m.status_type === "deleted") {
-    stateTag = `<span class="m-state-tag">🗑️ 已删除</span>`;
-  } else if (m.orphan) {
-    stateTag = `<span class="m-state-tag warn">⚠️ 历史残留</span>`;
+  // 右侧徽章：对于非活跃成员，显示状态徽章而不是今日签到状态
+  let badge = "";
+  if (isBlacklist) {
+    // 非活跃成员：显示拉黑/删除/孤儿状态
+    if (m.status_type === "blacklisted") {
+      badge = `<span class="m-badge d-fail">🚫 已拉黑</span>`;
+    } else if (m.status_type === "deleted") {
+      badge = `<span class="m-badge d-deleted">🗑️ 已删除</span>`;
+    } else if (m.orphan) {
+      badge = `<span class="m-badge d-deleted">⚠️ 历史残留</span>`;
+    }
+  } else {
+    // 正常成员：显示今日签到状态
+    badge = `<span class="m-badge ${st.cls}">${st.text}</span>`;
   }
 
   const el = document.createElement("div");
@@ -364,14 +370,12 @@ function _renderMemberCard(m, isBlacklist) {
     `<button class="m-card" data-nick="${esc(m.nickname)}">` +
       `<span class="m-ava">${esc(m.nickname.slice(0, 1))}</span>` +
       `<span class="m-main">` +
-        `<span class="m-top"><span class="m-name">${esc(m.nickname)}</span>` +
-        stateTag +
-        `</span>` +
+        `<span class="m-top"><span class="m-name">${esc(m.nickname)}</span></span>` +
         `<span class="m-strip">${strip}</span>` +
         timeLine +
       `</span>` +
       `<span class="m-side">` +
-        `<span class="m-badge ${st.cls}">${st.text}</span>` +
+        badge +
         `<span class="m-count"><b>${m.ok_days}</b>签 <b class="f">${m.fail_days}</b>异</span>` +
       `</span>` +
     `</button>`;

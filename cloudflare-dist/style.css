@@ -203,7 +203,7 @@ main { max-width: 980px; margin: 0 auto; padding: 20px 14px 0; width: 100%; alig
 }
 .m-card:hover { opacity: .8; }
 
-.bl-btns { display: flex; gap: 6px; }
+.bl-btns { display: flex; gap: 6px; align-items: center; }
 
 .m-ava {
   flex: none; width: 34px; height: 34px; border-radius: 50%;
@@ -222,6 +222,7 @@ main { max-width: 980px; margin: 0 auto; padding: 20px 14px 0; width: 100%; alig
 .m-badge.d-ok { background: var(--ok); }
 .m-badge.d-fail { background: var(--fail); }
 .m-badge.d-pending, .m-badge.d-none { background: var(--pending); }
+.m-badge.d-deleted { background: #9aa4b2; }
 
 /* 非活跃成员的状态标签（已拉黑 / 已删除） */
 .m-state-tag { flex: none; font-size: 10.5px; padding: 2px 8px; border-radius: 20px;
