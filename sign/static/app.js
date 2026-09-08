@@ -362,11 +362,14 @@ function _renderMemberCard(m, isBlacklist) {
       `<span class="m-main">` +
         `<span class="m-top"><span class="m-name">${esc(m.nickname)}</span>` +
         stateTag +
-        `<span class="m-badge ${st.cls}">${st.text}</span></span>` +
+        `</span>` +
         `<span class="m-strip">${strip}</span>` +
         timeLine +
       `</span>` +
-      `<span class="m-count"><b>${m.ok_days}</b>签 <b class="f">${m.fail_days}</b>异</span>` +
+      `<span class="m-side">` +
+        `<span class="m-badge ${st.cls}">${st.text}</span>` +
+        `<span class="m-count"><b>${m.ok_days}</b>签 <b class="f">${m.fail_days}</b>异</span>` +
+      `</span>` +
     `</button>`;
 
   // 管理员模式：添加操作按钮
