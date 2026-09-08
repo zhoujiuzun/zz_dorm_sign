@@ -46,3 +46,6 @@ Thumbs.db
 # 临时文件
 *.log
 *.tmp
+
+# 前端仅保留 cloudflare-dist（Pages 部署目录）；sign/static 由 FC 本地打包，不入库
+sign/static/
