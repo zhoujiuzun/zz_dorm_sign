@@ -96,7 +96,7 @@ body {
 .btn-danger:hover { background: #d8403c; }
 .btn-link { background: transparent; color: var(--accent); padding: 8px 0; }
 .btn-link:hover { text-decoration: underline; }
-.btn-sm { padding: 5px 10px; font-size: 12px; }
+.btn-sm { padding: 5px 10px; font-size: 12px; flex-shrink: 0; }
 
 /* 标签页 */
 .tabs { display: flex; gap: 4px; margin-bottom: 12px; }
@@ -203,7 +203,7 @@ main { max-width: 980px; margin: 0 auto; padding: 20px 14px 0; width: 100%; alig
 }
 .m-card:hover { opacity: .8; }
 
-.bl-btns { display: flex; gap: 6px; align-items: center; }
+.bl-btns { display: flex; gap: 6px; align-items: center; align-self: center; }
 
 .m-ava {
   flex: none; width: 34px; height: 34px; border-radius: 50%;
