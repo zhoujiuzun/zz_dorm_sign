@@ -353,11 +353,11 @@ function _renderMemberCard(m, isBlacklist) {
   if (isBlacklist) {
     // 非活跃成员：显示拉黑/删除/孤儿状态
     if (m.status_type === "blacklisted") {
-      badge = `<span class="m-badge d-fail">🚫 已拉黑</span>`;
+      badge = `<span class="m-badge d-fail">已拉黑</span>`;
     } else if (m.status_type === "deleted") {
-      badge = `<span class="m-badge d-deleted">🗑️ 已删除</span>`;
+      badge = `<span class="m-badge d-deleted">已删除</span>`;
     } else if (m.orphan) {
-      badge = `<span class="m-badge d-deleted">⚠️ 历史残留</span>`;
+      badge = `<span class="m-badge d-deleted">历史残留</span>`;
     }
   } else {
     // 正常成员：显示今日签到状态
@@ -382,35 +382,34 @@ function _renderMemberCard(m, isBlacklist) {
 
   // 管理员模式：添加操作按钮
   if (state.token) {
+    const btns = document.createElement("div");
+    btns.className = "bl-btns";
+
     if (isBlacklist) {
-      // 非活跃成员：按 status_type 分派到对应的 API
-      const isDeleted = m.status_type === "deleted";
-      const btns = document.createElement("div");
-      btns.className = "bl-btns";
-      // 孤儿没有 openid，恢复出来也签不了到，只给"彻底删除"
+      // 非活跃成员：恢复 + 删除（完全复刻活跃用户的按钮结构）
       if (!m.orphan) {
         const restore = document.createElement("button");
-        restore.className = "btn-primary btn-sm";
+        restore.className = "btn-danger btn-sm";
         restore.textContent = "恢复";
         restore.onclick = e => {
           e.stopPropagation();
+          const isDeleted = m.status_type === "deleted";
           isDeleted ? restoreDeleted(m.id, m.nickname) : restoreMember(m.id, m.nickname);
         };
         btns.appendChild(restore);
       }
       const del = document.createElement("button");
       del.className = "btn-danger btn-sm";
-      del.textContent = "彻底删除";
+      del.textContent = "删除";
       del.onclick = e => {
         e.stopPropagation();
+        const isDeleted = m.status_type === "deleted";
         isDeleted ? purgeDeleted(m.id, m.nickname) : deleteMember(m.id, m.nickname);
       };
       btns.appendChild(del);
       el.appendChild(btns);
     } else if (m.orphan) {
       // 历史孤儿：openid 已丢失，拉黑/删除都定位不到它，只能清除列表条目
-      const btns = document.createElement("div");
-      btns.className = "bl-btns";
       const hide = document.createElement("button");
       hide.className = "btn-danger btn-sm";
       hide.textContent = "清除残留";
@@ -418,8 +417,7 @@ function _renderMemberCard(m, isBlacklist) {
       btns.appendChild(hide);
       el.appendChild(btns);
     } else {
-      const btns = document.createElement("div");
-      btns.className = "bl-btns";
+      // 活跃成员：拉黑 + 删除
       const blacklist = document.createElement("button");
       blacklist.className = "btn-danger btn-sm";
       blacklist.textContent = "拉黑";
