@@ -3,94 +3,100 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>签到管理后台</title>
+  <meta name="theme-color" content="#e6f6f0">
+  <title>签到管理</title>
   <link rel="stylesheet" href="/style.css">
 </head>
 <body class="admin">
-  <header class="topbar">
-    <h1>签到管理后台</h1>
-    <div class="topbar-right">
-      <div class="today" id="today">--</div>
-      <button type="button" id="signing-toggle-btn" class="btn-link" hidden>停止签到</button>
-      <button type="button" id="logout-btn" class="btn-link" hidden>退出</button>
+  <header class="bar">
+    <div class="brand"><span class="brand-mark" aria-hidden="true"></span>签到管理</div>
+    <div class="bar-right">
+      <span class="clock" id="today">--</span>
+      <button type="button" class="switch" id="signing-switch" role="switch" aria-checked="true" hidden>
+        <span class="switch-track"><span class="switch-thumb"></span></span>
+        <span id="signing-label">自动签到中</span>
+      </button>
+      <button type="button" class="btn btn-ghost btn-sm" id="logout-btn" hidden>退出登录</button>
     </div>
   </header>
 
-  <div class="login-mask" id="login-mask" hidden>
-    <form class="login-box" id="login-form" novalidate>
+  <div class="mask" id="login-mask" hidden>
+    <form class="dialog" id="login-form" novalidate>
+      <span class="brand-mark big" aria-hidden="true"></span>
       <h2>管理员登录</h2>
-      <input type="text" id="login-user" placeholder="管理员账号" autocomplete="username" aria-label="管理员账号">
-      <input type="password" id="login-pass" placeholder="密码" autocomplete="current-password" aria-label="密码">
-      <div class="login-err" id="login-err" role="alert"></div>
-      <button type="submit" class="btn-primary" id="login-btn">登录</button>
-      <div class="dialog-foot"><a class="btn-link" href="/">返回签到看板</a></div>
+      <p class="dialog-desc">登录后可管理全体成员的签到</p>
+      <label class="field"><span>账号</span>
+        <input class="input" type="text" id="login-user" autocomplete="username"></label>
+      <label class="field"><span>密码</span>
+        <input class="input" type="password" id="login-pass" autocomplete="current-password"></label>
+      <div class="form-err" id="login-err" role="alert"></div>
+      <button type="submit" class="btn btn-primary btn-block" id="login-btn">登录</button>
+      <div class="dialog-foot center"><a class="link-btn" href="/">返回签到看板</a></div>
     </form>
   </div>
 
-  <div class="signing-notice" id="signing-notice" hidden>
-    当前为假期暂停状态，系统不会自动提交签到。
-  </div>
+  <div class="notice" id="signing-notice" hidden>当前为假期暂停状态，系统不会自动提交签到。</div>
 
-  <main id="main-content" hidden>
-    <section class="overview" id="overview">
-      <div class="stat stat-total"><span class="num" id="ov-total">-</span><span class="lbl">总人数</span></div>
-      <div class="stat stat-ok"><span class="num" id="ov-ok">-</span><span class="lbl">今日已签</span></div>
-      <div class="stat stat-fail"><span class="num" id="ov-fail">-</span><span class="lbl">今日异常</span></div>
-      <div class="stat stat-pending"><span class="num" id="ov-pending">-</span><span class="lbl">今日未签</span></div>
+  <main class="page wide" id="main-content" hidden>
+    <section class="stats" aria-label="今日概况，点一下筛选成员">
+      <button type="button" class="stat" data-g="all"><span class="num" id="ov-total">-</span><span class="lbl">全部成员</span></button>
+      <button type="button" class="stat s-ok" data-g="ok"><span class="num" id="ov-ok">-</span><span class="lbl">今日已签</span></button>
+      <button type="button" class="stat s-fail" data-g="fail"><span class="num" id="ov-fail">-</span><span class="lbl">今日异常</span></button>
+      <button type="button" class="stat s-pending" data-g="pending"><span class="num" id="ov-pending">-</span><span class="lbl">今日未签</span></button>
     </section>
 
-    <div class="layout admin-layout">
-      <section class="left">
+    <div class="admin-grid">
+      <section class="card list-card" id="list-card" aria-label="成员列表">
         <div class="tabs" role="tablist">
-          <button type="button" class="tab active" data-view="members" role="tab">成员 <span id="cnt-members"></span></button>
-          <button type="button" class="tab" data-view="inactive" role="tab">非活跃 <span id="cnt-inactive"></span></button>
+          <button type="button" class="tab active" data-view="members" role="tab" aria-selected="true">成员 <span id="cnt-members"></span></button>
+          <button type="button" class="tab" data-view="inactive" role="tab" aria-selected="false">非活跃 <span id="cnt-inactive"></span></button>
         </div>
-        <input type="search" id="search" class="search" placeholder="搜索姓名或学号…" autocomplete="off" aria-label="搜索">
+        <input type="search" class="input search" id="search" placeholder="搜索姓名或学号" autocomplete="off" aria-label="搜索姓名或学号">
+        <div class="filter-tip" id="filter-tip" hidden>
+          <span id="filter-text"></span><button type="button" class="link-btn" id="filter-clear">清除筛选</button>
+        </div>
         <div class="list-tools" id="ids-tools" hidden>
-          <span id="ids-missing"></span>
-          <button type="button" class="btn-link" id="backfill-btn">补全学号</button>
+          <span id="ids-missing"></span><button type="button" class="link-btn" id="backfill-btn">补全学号</button>
         </div>
-        <div class="members" id="list" role="list"></div>
+        <div class="list" id="list" role="list"></div>
       </section>
 
-      <section class="detail right" id="detail">
-        <div class="detail-empty" id="detail-empty">在左侧选择一位成员，查看签到日历并管理签到设置</div>
+      <section class="card detail" id="detail" aria-label="成员详情">
+        <div class="detail-empty" id="detail-empty">在左侧选择一位成员<br>查看签到日历、管理签到设置</div>
         <div id="detail-body" hidden>
-          <div class="uc-head">
-            <div>
-              <div class="uc-name" id="uc-name">--</div>
-              <div class="uc-sub" id="uc-sub"></div>
+          <button type="button" class="link-btn back-btn" id="back-btn">‹ 返回列表</button>
+          <div class="detail-head">
+            <span class="ava big" id="d-ava" aria-hidden="true"></span>
+            <div class="dh-main">
+              <div class="dh-name" id="uc-name">--</div>
+              <div class="dh-sub" id="uc-sub"></div>
             </div>
-            <div class="uc-stats">
-              <span class="chip chip-ok" id="uc-okdays">已签 -- 天</span>
-              <span class="chip chip-fail" id="uc-faildays">异常 -- 天</span>
+            <div class="chips">
+              <span class="tag tag-ok" id="uc-okdays">已签 -- 天</span>
+              <span class="tag tag-fail" id="uc-faildays">异常 -- 天</span>
             </div>
           </div>
-          <div class="blacklist-alert" id="uc-alert" hidden></div>
+          <div class="alert" id="uc-alert" hidden></div>
 
           <div class="detail-grid">
-            <div class="detail-side">
-              <section class="panel" id="settings-panel" aria-labelledby="settings-title">
-                <h2 class="panel-title" id="settings-title">签到设置</h2>
-                <div id="settings"></div>
-              </section>
-              <section class="panel" aria-labelledby="manage-title">
-                <h2 class="panel-title" id="manage-title">成员管理</h2>
-                <div class="action-row" id="manage"></div>
+            <div class="stack">
+              <div class="today-block tone-wait" id="today-box"></div>
+              <section class="sub-card" id="info-card">
+                <h3 class="card-title">签到设置</h3>
+                <div id="info-box"></div>
               </section>
             </div>
-            <div class="detail-cal">
+            <div class="cal-wrap">
               <div class="cal-nav">
-                <button type="button" id="prev-month" class="navbtn" aria-label="上个月">‹</button>
+                <button type="button" id="prev-month" class="nav-btn" aria-label="上个月">‹</button>
                 <div class="cal-title" id="cal-title">----年--月</div>
-                <button type="button" id="next-month" class="navbtn" aria-label="下个月">›</button>
+                <button type="button" id="next-month" class="nav-btn" aria-label="下个月">›</button>
               </div>
               <table class="calendar">
-                <thead><tr>
-                  <th>一</th><th>二</th><th>三</th><th>四</th><th>五</th><th>六</th><th class="sun">日</th>
-                </tr></thead>
+                <thead><tr><th>一</th><th>二</th><th>三</th><th>四</th><th>五</th><th>六</th><th>日</th></tr></thead>
                 <tbody id="cal-body"></tbody>
               </table>
+              <div class="cal-detail" id="cal-detail" aria-live="polite"></div>
               <div class="legend">
                 <span><i class="dot d-ok"></i>已签到</span>
                 <span><i class="dot d-fail"></i>失败/异常</span>

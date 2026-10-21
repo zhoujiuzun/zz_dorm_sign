@@ -3,69 +3,70 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>宿舍签到看板</title>
+  <meta name="theme-color" content="#e6f6f0">
+  <title>宿舍签到</title>
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-  <header class="topbar">
-    <h1>宿舍签到看板</h1>
-    <div class="topbar-right">
-      <div class="today" id="today">--</div>
-      <button type="button" id="switch-btn" class="btn-link" hidden>切换账号</button>
+  <header class="bar">
+    <div class="brand"><span class="brand-mark" aria-hidden="true"></span>宿舍签到</div>
+    <div class="bar-right">
+      <span class="clock" id="today">--</span>
+      <span class="user-chip" id="user-chip" hidden></span>
+      <button type="button" class="btn btn-ghost btn-sm" id="logout-btn" hidden>退出登录</button>
     </div>
   </header>
 
-  <!-- 登录：姓名 + 学号 -->
-  <div class="login-mask" id="login-mask" hidden>
-    <form class="login-box" id="login-form" novalidate>
+  <div class="mask" id="login-mask" hidden>
+    <form class="dialog" id="login-form" novalidate>
+      <span class="brand-mark big" aria-hidden="true"></span>
       <h2>查看我的签到</h2>
       <p class="dialog-desc">输入姓名和学号，只显示你自己的签到信息</p>
-      <input type="text" id="login-name" placeholder="姓名" autocomplete="name" aria-label="姓名">
-      <input type="text" id="login-sid" placeholder="学号" inputmode="numeric" autocomplete="off" aria-label="学号">
-      <div class="login-err" id="login-err" role="alert"></div>
-      <button type="submit" class="btn-primary" id="login-btn">登录</button>
-      <div class="dialog-foot">
-        <a class="btn-link" href="/admin.html">管理员登录</a>
-        <button type="button" class="btn-link" id="login-cancel" hidden>取消</button>
-      </div>
+      <label class="field"><span>姓名</span>
+        <input class="input" type="text" id="login-name" autocomplete="name"></label>
+      <label class="field"><span>学号</span>
+        <input class="input" type="text" id="login-sid" inputmode="numeric" autocomplete="off"></label>
+      <div class="form-err" id="login-err" role="alert"></div>
+      <button type="submit" class="btn btn-primary btn-block" id="login-btn">登录</button>
+      <div class="dialog-foot center"><a class="link-btn" href="/admin.html">管理员入口</a></div>
     </form>
   </div>
 
-  <div class="signing-notice" id="signing-notice" hidden>
-    当前为假期暂停状态，系统不会自动提交签到。
-  </div>
+  <div class="notice" id="signing-notice" hidden>当前为假期暂停状态，系统不会自动提交签到。</div>
 
-  <main id="main-content" hidden>
-    <div class="layout">
-      <section class="left">
-        <h2 class="sec-title">我的签到</h2>
-        <div class="members" id="members"></div>
-        <section class="panel" aria-labelledby="settings-title">
-          <h2 class="panel-title" id="settings-title">签到设置</h2>
-          <div id="settings"><div class="empty-sm">加载中…</div></div>
+  <main class="page" id="main-content" hidden>
+    <div class="user-grid">
+      <div class="stack">
+        <section class="card today-card" aria-label="今天的签到">
+          <div class="today-block tone-wait" id="today-box"><div class="tb-sub">加载中…</div></div>
         </section>
-        <button type="button" class="btn-quiet-danger" id="quit-btn">退出自动签到</button>
-      </section>
+        <section class="card" aria-labelledby="info-title">
+          <div class="card-head">
+            <h2 class="card-title" id="info-title">我的签到设置</h2>
+            <button type="button" class="btn btn-danger btn-sm" id="quit-btn">停用自动签到</button>
+          </div>
+          <div id="info-box"><div class="hint">加载中…</div></div>
+        </section>
+      </div>
 
-      <section class="usercard right" id="usercard">
-        <div class="uc-head">
-          <div class="uc-name" id="uc-name">--</div>
-          <div class="uc-stats">
-            <span class="chip chip-ok" id="uc-okdays">已签 -- 天</span>
-            <span class="chip chip-fail" id="uc-faildays">异常 -- 天</span>
+      <section class="card cal-card" aria-labelledby="uc-name">
+        <div class="cal-head">
+          <h2 class="card-title" id="uc-name">签到日历</h2>
+          <div class="chips">
+            <span class="tag tag-ok" id="uc-okdays">已签 -- 天</span>
+            <span class="tag tag-fail" id="uc-faildays">异常 -- 天</span>
           </div>
         </div>
         <div class="cal-nav">
-          <button type="button" id="prev-month" class="navbtn" aria-label="上个月">‹</button>
+          <button type="button" id="prev-month" class="nav-btn" aria-label="上个月">‹</button>
           <div class="cal-title" id="cal-title">----年--月</div>
-          <button type="button" id="next-month" class="navbtn" aria-label="下个月">›</button>
+          <button type="button" id="next-month" class="nav-btn" aria-label="下个月">›</button>
         </div>
         <table class="calendar">
-          <thead><tr>
-            <th>一</th><th>二</th><th>三</th><th>四</th><th>五</th><th>六</th><th class="sun">日</th>
-          </tr></thead>
+          <thead><tr><th>一</th><th>二</th><th>三</th><th>四</th><th>五</th><th>六</th><th>日</th></tr></thead>
           <tbody id="cal-body"></tbody>
         </table>
+        <div class="cal-detail" id="cal-detail" aria-live="polite"></div>
         <div class="legend">
           <span><i class="dot d-ok"></i>已签到</span>
           <span><i class="dot d-fail"></i>失败/异常</span>
@@ -76,7 +77,7 @@
     </div>
   </main>
 
-  <footer class="foot" id="foot">加载中…</footer>
+  <footer class="foot" id="foot"></footer>
   <script src="/common.js"></script>
   <script src="/app.js"></script>
 </body>

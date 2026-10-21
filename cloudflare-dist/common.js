@@ -73,11 +73,23 @@ function stripHtml(strip) {
   return (strip || []).map(s =>
     `<i class="tick ${s ? (STATUS[s] || STATUS.pending).cls : "d-none"}"></i>`).join("");
 }
+
+function isFail(st) { return st === "error" || st === "login_failed"; }
+const WEEK = "日一二三四五六";
+
+// 距今天 HH:MM 还有多久；已过返回空串
+function countdown(hm) {
+  const [h, mi] = hm.split(":").map(Number);
+  const n = new Date();
+  const diff = h * 60 + mi - (n.getHours() * 60 + n.getMinutes());
+  if (diff <= 0) return "";
+  return diff < 60 ? `还有 ${diff} 分钟` : `还有 ${Math.floor(diff / 60)} 小时 ${diff % 60} 分`;
+}
 // 月历：拉 /api/user 渲染某人的日历。seq 防止快速切换时旧响应覆盖新的。
 const Cal = {
-  name: "", data: null, year: 0, month: 0, seq: 0,
+  name: "", data: null, year: 0, month: 0, seq: 0, sel: "",
 
-  clear() { this.name = ""; this.data = null; this.seq++; },
+  clear() { this.name = ""; this.data = null; this.sel = ""; this.seq++; },
 
   async load(name, keepMonth) {
     const same = name === this.name && !!this.data;
@@ -85,6 +97,8 @@ const Cal = {
     const seq = ++this.seq;
     if (!same) {
       this.data = null;
+      this.sel = "";
+      $("cal-detail").innerHTML = "";
       $("uc-okdays").textContent = "已签 -- 天";
       $("uc-faildays").textContent = "异常 -- 天";
       $("cal-body").innerHTML = '<tr><td colspan="7" class="cal-loading">加载中…</td></tr>';
@@ -98,6 +112,7 @@ const Cal = {
     this.data = data;
     if (!(same && keepMonth)) {
       [this.year, this.month] = data.today.split("-").map(Number);
+      this.sel = data.today;
     }
     $("uc-okdays").textContent = `已签 ${data.stats.ok_days} 天`;
     $("uc-faildays").textContent = `异常 ${data.stats.fail_days} 天`;
@@ -114,7 +129,22 @@ const Cal = {
   bind() {
     $("prev-month").onclick = () => this.shift(-1);
     $("next-month").onclick = () => this.shift(1);
+    $("cal-body").onclick = e => {
+      const b = e.target.closest("[data-date]");
+      if (b) { this.sel = b.dataset.date; this.render(); }
+    };
   },
+  // 某天的状态说明（日历下方详情用）
+  info(date) {
+    const d = this.data, rec = d.records[date];
+    if (rec) {
+      const s = STATUS[rec.status] || STATUS.pending;
+      return { cls: s.cls, text: s.text, time: rec.time || "", msg: isFail(rec.status) ? rec.message || "" : "" };
+    }
+    if (date === d.today) return { cls: "d-pending", text: "今天还没有记录", time: "", msg: "" };
+    return { cls: "d-none", text: "无记录", time: "", msg: "" };
+  },
+
   render() {
     const d = this.data;
     if (!d) return;
@@ -136,28 +166,35 @@ const Cal = {
     for (let i = 0; i < cells.length; i += 7) {
       html += "<tr>";
       for (const dd of cells.slice(i, i + 7)) {
-        if (dd == null) { html += '<td class="blank"></td>'; continue; }
+        if (dd == null) { html += "<td></td>"; continue; }
         const date = `${y}-${pad(m)}-${pad(dd)}`;
-        const rec = d.records[date];
-        let cls = "d-none", title = `${date} 无记录`;
-        if (date === d.today && !rec) { cls = "d-pending"; title = `${date} 未签`; }
-        if (rec) {
-          const s = STATUS[rec.status] || STATUS.pending;
-          cls = s.cls;
-          title = `${date} ${s.text}${rec.time ? " " + rec.time : ""}`;
-          // 失败/异常时把原因带进悬浮提示
-          if (rec.message && (rec.status === "login_failed" || rec.status === "error")) {
-            title += "\n" + rec.message;
-          }
-        }
-        html += `<td class="cell${date === d.today ? " is-today" : ""}" title="${esc(title)}">` +
-                `<span class="stamp ${cls}">${dd}</span></td>`;
+        if (date > d.today) { html += `<td><span class="stamp future">${dd}</span></td>`; continue; }
+        const x = this.info(date);
+        const cls = `stamp ${x.cls}${date === d.today ? " is-today" : ""}${date === this.sel ? " is-sel" : ""}`;
+        const label = `${m}月${dd}日 ${x.text}${x.time ? " " + x.time : ""}`;
+        html += `<td><button type="button" class="${cls}" data-date="${date}" aria-label="${esc(label)}"` +
+                ` title="${esc(label + (x.msg ? "\n" + x.msg : ""))}">${dd}</button></td>`;
       }
       html += "</tr>";
     }
     $("cal-body").innerHTML = html;
+    this.detail();
+  },
+
+  // 日历下方：选中那天的状态、时间和失败原因（手机上没有悬浮提示，点一下就能看）
+  detail() {
+    const box = $("cal-detail");
+    if (!this.sel || !this.data) { box.innerHTML = ""; return; }
+    const [y, m, dd] = this.sel.split("-").map(Number);
+    const x = this.info(this.sel);
+    box.innerHTML =
+      `<span class="cd-date">${m}月${dd}日 周${WEEK[new Date(y, m - 1, dd).getDay()]}</span>` +
+      `<span class="badge ${x.cls}">${esc(x.text)}</span>` +
+      (x.time ? `<span class="cd-time">${esc(x.time)}</span>` : "") +
+      (x.msg ? `<span class="cd-msg">${esc(x.msg)}</span>` : "");
   },
 };
+
 // 时间对话框：指定今天时刻 / 修改每天时段 共用。按需注入页面，两个页面不必各写一份。
 const TimeDialog = {
   el: null,
@@ -168,15 +205,15 @@ const TimeDialog = {
     mask.className = "login-mask";
     mask.hidden = true;
     mask.innerHTML =
-      '<form class="login-box dialog" novalidate role="dialog" aria-modal="true" aria-labelledby="td-title">' +
+      '<form class="dialog" novalidate role="dialog" aria-modal="true" aria-labelledby="td-title">' +
         '<h2 id="td-title"></h2>' +
         '<p class="dialog-desc" id="td-desc"></p>' +
         '<div class="time-fields" id="td-fields"></div>' +
-        '<div class="login-err" id="td-err" role="alert"></div>' +
-        '<button type="submit" class="btn-primary" id="td-ok">保存</button>' +
+        '<div class="form-err" id="td-err" role="alert"></div>' +
+        '<button type="submit" class="btn btn-primary btn-block" id="td-ok">保存</button>' +
         '<div class="dialog-foot">' +
-          '<button type="button" class="btn-link" id="td-alt"></button>' +
-          '<button type="button" class="btn-link" id="td-cancel">取消</button>' +
+          '<button type="button" class="link-btn" id="td-alt"></button>' +
+          '<button type="button" class="link-btn" id="td-cancel">取消</button>' +
         "</div>" +
       "</form>";
     document.body.appendChild(mask);
@@ -197,7 +234,7 @@ const TimeDialog = {
     el.querySelector("#td-err").textContent = "";
     el.querySelector("#td-fields").innerHTML = opts.fields.map(f =>
       `<label class="time-field"><span>${esc(f.label)}</span>` +
-      `<input type="time" class="time-input" data-key="${esc(f.key)}" value="${esc(f.value || "")}"` +
+      `<input type="time" class="input time-input" data-key="${esc(f.key)}" value="${esc(f.value || "")}"` +
       ` min="${esc(f.min || "")}" max="${esc(f.max || "")}" step="60" required></label>`).join("");
 
     const ok = el.querySelector("#td-ok");
@@ -226,32 +263,52 @@ const TimeDialog = {
     el.querySelector(".time-input").focus();
   },
 };
-// 签到设置面板：学号 / 今天时刻 / 每天时段 + 立即签到 / 指定今天时刻 / 修改每天时段
+// 签到设置（用户页与管理页共用）
+//   today(): 今天的状态 + 立即签到 / 指定今天时刻    info(): 学号与每天时段
+// v: {m: 设置, day: {status,time}|null, paused, showSid}
 // ctx: {token, sys:{start,end}, onChange(member), onExpired()}
 const Settings = {
-  render(box, m, ctx) {
+  today(box, v, ctx) {
+    const { m, day, paused } = v;
     const t = m.today;
-    const today = t.signed ? '<span class="tag tag-ok">今天已签到</span>'
-      : `<b class="num">${esc(t.time)}</b>` + (t.manual ? '<span class="tag tag-accent">已指定</span>'
-        : t.passed ? '<span class="tag tag-muted">已过点</span>' : '<span class="tag tag-pending">待签</span>');
+    const signed = t.signed || (day && day.status === "ok");
+    const failed = !signed && day && isFail(day.status);
+    let tone = "wait", title = paused ? "假期暂停中" : "今天将自动签到", big = t.time, sub;
+    if (signed) {
+      [tone, title, big, sub] = ["ok", "今天已签到", (day && day.time) || "✓", "签到成功，明天见"];
+    } else if (failed) {
+      [tone, title, sub] = ["fail", "今天签到失败", "可以立即重签，或指定一个更晚的时刻"];
+    } else if (t.passed) {
+      [tone, title, sub] = ["warn", "今天的时刻已过", "还没有成功记录，可以立即签到"];
+    } else {
+      sub = paused ? "暂停期间不会自动签到，可以手动签到"
+        : `${countdown(t.time) || "即将签到"} · ${t.manual ? "已指定时刻" : "时段内随机"}`;
+    }
+    box.className = `today-block tone-${tone}${paused && tone === "wait" ? " is-paused" : ""}`;
     box.innerHTML =
-      '<div class="kv-list">' +
-        `<div class="kv kv-sid"><span class="k">学号</span><span class="v">${esc(m.student_id || "未获取")}</span></div>` +
-        `<div class="kv"><span class="k">今天签到</span><span class="v">${today}</span></div>` +
-        `<div class="kv"><span class="k">每天时段</span><span class="v"><b class="num">` +
-          `${esc(m.window.start)}–${esc(m.window.end)}</b>` +
-          `${m.window.custom ? "" : '<span class="tag tag-muted">默认</span>'}</span></div>` +
-      "</div>" +
-      '<div class="action-row">' +
-        '<button type="button" class="btn-primary" data-act="now">立即签到</button>' +
-        '<button type="button" class="btn-secondary" data-act="today">指定今天时刻</button>' +
-        '<button type="button" class="btn-secondary" data-act="window">修改每天时段</button>' +
-      "</div>";
-    const btn = act => box.querySelector(`[data-act="${act}"]`);
-    btn("now").disabled = btn("today").disabled = t.signed;
-    btn("now").onclick = () => this.signNow(btn("now"), m, ctx);
-    btn("today").onclick = () => this.editToday(m, ctx);
-    btn("window").onclick = () => this.editWindow(m, ctx);
+      `<div class="tb-title">${esc(title)}</div>` +
+      `<div class="tb-time">${esc(big)}</div>` +
+      `<div class="tb-sub">${esc(sub)}</div>` +
+      (signed ? "" : '<div class="tb-actions">' +
+        '<button type="button" class="btn btn-primary" data-act="now">立即签到</button>' +
+        `<button type="button" class="btn btn-soft" data-act="today">${t.manual ? "改指定时刻" : "指定今天时刻"}</button>` +
+        "</div>");
+    if (signed) return;
+    const now = box.querySelector('[data-act="now"]');
+    now.onclick = () => this.signNow(now, m, ctx);
+    box.querySelector('[data-act="today"]').onclick = () => this.editToday(m, ctx);
+  },
+
+  info(box, v, ctx) {
+    const { m, showSid } = v;
+    box.innerHTML =
+      (showSid ? `<div class="kv"><span class="k">学号</span><span class="v">${esc(m.student_id || "未获取")}</span></div>` : "") +
+      '<div class="kv"><span class="k">每天时段</span><span class="v">' +
+        `<b class="num">${esc(m.window.start)}–${esc(m.window.end)}</b>` +
+        `<span class="tag ${m.window.custom ? "tag-accent" : "tag-muted"}">${m.window.custom ? "自定义" : "默认"}</span>` +
+        '<button type="button" class="link-btn" data-act="window">修改</button></span></div>' +
+      '<p class="hint">每天在这个时段内随机挑一个时刻自动签到，修改从明天起生效。</p>';
+    box.querySelector('[data-act="window"]').onclick = () => this.editWindow(m, ctx);
   },
 
   done(ctx, data) {

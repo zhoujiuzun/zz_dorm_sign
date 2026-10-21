@@ -1,8 +1,9 @@
-// 管理后台：左侧成员列表（只做浏览与选择），右侧详情面板集中放全部操作
+// 管理页：顶部统计可点筛选；左侧列表选人，行右侧直接拉黑/删除；右侧详情管签到设置与日历
 
 const S = {
   token: sessionStorage.getItem("admin_token") || "",
   view: "members",     // "members" | "inactive"
+  group: "all",        // 统计卡筛选：all | ok | fail | pending
   members: null,       // /api/members
   inactive: [],        // /api/blacklist 的 inactive
   roster: {},          // id -> 签到设置（含学号），来自 /api/admin/roster
@@ -12,6 +13,7 @@ const S = {
 };
 
 function showLogin() {
+  $("main-content").hidden = true;
   $("login-mask").hidden = false;
   $("login-err").textContent = "";
   $("login-pass").value = "";
@@ -31,7 +33,7 @@ $("login-form").onsubmit = async e => {
   enter();
 };
 
-// 管理令牌约 1-2 小时过期：任何接口回 401，或旧接口回 403「未授权」，都回到登录
+// 管理令牌约 1-2 小时过期：接口回 401，或旧接口回 403「未授权」，都回到登录
 function isExpired(status, data) {
   return status === 401 || (status === 403 && /未授权/.test(data.error || ""));
 }
@@ -43,11 +45,7 @@ function expired() {
   showLogin();
 }
 
-$("logout-btn").onclick = () => {
-  S.token = "";
-  sessionStorage.removeItem("admin_token");
-  location.href = "/";
-};
+$("logout-btn").onclick = () => { sessionStorage.removeItem("admin_token"); location.href = "/"; };
 function enter() {
   $("main-content").hidden = false;
   $("logout-btn").hidden = false;
@@ -83,17 +81,23 @@ function renderOverview() {
   $("ov-pending").textContent = o.pending;
   const paused = S.members.signing_enabled === false;
   $("signing-notice").hidden = !paused;
-  const t = $("signing-toggle-btn");
-  t.hidden = false;
-  t.textContent = paused ? "恢复签到" : "停止签到";
+  const sw = $("signing-switch");
+  sw.hidden = false;
+  sw.setAttribute("aria-checked", String(!paused));
+  sw.classList.toggle("off", paused);
+  $("signing-label").textContent = paused ? "已暂停签到" : "自动签到中";
   $("cnt-members").textContent = S.members.members.length;
   $("cnt-inactive").textContent = S.inactive.length;
+  document.querySelectorAll(".stat").forEach(s =>
+    s.classList.toggle("active", S.view === "members" && S.group !== "all" && s.dataset.g === S.group));
   const missing = Object.values(S.roster).filter(x => !x.student_id).length;
   $("ids-tools").hidden = !missing || S.view !== "members";
   $("ids-missing").textContent = `${missing} 人还没有学号`;
 }
-function currentList() {
-  return S.view === "members" ? S.members.members : S.inactive;
+// 与后端总览计数一致：ok / 失败 / 其余都算未签
+function groupOf(m) {
+  if (m.today_status === "ok") return "ok";
+  return isFail(m.today_status) ? "fail" : "pending";
 }
 
 function findMember(id) {
@@ -104,108 +108,127 @@ function findMember(id) {
 }
 
 function badgeOf(m) {
-  if (m.status_type === "blacklisted") return '<span class="m-badge d-fail">已拉黑</span>';
-  if (m.status_type === "deleted") return `<span class="m-badge d-deleted">${m.orphan ? "历史残留" : "已删除"}</span>`;
-  if (m.orphan) return '<span class="m-badge d-deleted">历史残留</span>';
+  if (m.status_type === "blacklisted") return '<span class="badge d-fail">已拉黑</span>';
+  if (m.status_type === "deleted") return `<span class="badge d-deleted">${m.orphan ? "历史残留" : "已删除"}</span>`;
+  if (m.orphan) return '<span class="badge d-deleted">历史残留</span>';
   const st = STATUS[m.today_status] || STATUS.pending;
-  return `<span class="m-badge ${st.cls}">${st.text}</span>`;
+  return `<span class="badge ${st.cls}">${st.text}</span>`;
 }
+
+const GROUP_TEXT = { ok: "今日已签", fail: "今日异常", pending: "今日未签" };
 
 function renderList() {
   const kw = S.filter.trim().toLowerCase();
-  const all = currentList();
-  const list = !kw ? all : all.filter(m => m.nickname.toLowerCase().includes(kw) ||
-    String(S.roster[m.id]?.student_id || "").includes(kw));
+  const all = S.view === "members" ? S.members.members : S.inactive;
+  const byGroup = S.view === "members" && S.group !== "all";
+  let list = byGroup ? all.filter(m => groupOf(m) === S.group) : all;
+  if (kw) {
+    list = list.filter(m => m.nickname.toLowerCase().includes(kw) ||
+      String(S.roster[m.id]?.student_id || "").includes(kw));
+  }
+  $("filter-tip").hidden = !byGroup;
+  $("filter-text").textContent = byGroup ? `只看「${GROUP_TEXT[S.group]}」· ${list.length} 人` : "";
   if (!list.length) {
-    $("list").innerHTML = `<div class="empty">${all.length ? "无匹配成员" : "暂无成员"}</div>`;
+    $("list").innerHTML = `<div class="empty">${kw || byGroup ? "没有符合条件的成员" :
+      S.view === "members" ? "还没有成员" : "暂无非活跃成员"}</div>`;
     return;
   }
   $("list").innerHTML = list.map(m => {
     const sid = S.roster[m.id]?.student_id;
     const time = m.today_status === "ok" && m.today_time ? `✓ ${m.today_time} 已签`
       : m.scheduled_time ? `预定 ${m.scheduled_time}` : "";
-    return `<button type="button" role="listitem" class="member row${m.id === S.selected ? " active" : ""}"` +
-      ` data-id="${esc(m.id)}">` +
-      `<span class="m-ava" aria-hidden="true">${esc(m.nickname.slice(0, 1))}</span>` +
-      `<span class="m-main"><span class="m-top"><span class="m-name">${esc(m.nickname)}</span>` +
-      `${sid ? `<span class="m-sid">${esc(sid)}</span>` : ""}</span>` +
-      `<span class="m-strip">${stripHtml(m.strip)}</span>` +
-      `${time ? `<span class="m-time${m.today_status === "ok" ? " done" : ""}">${esc(time)}</span>` : ""}</span>` +
-      `<span class="m-side">${badgeOf(m)}` +
-      `<span class="m-count"><b>${m.ok_days}</b>签 <b class="f">${m.fail_days}</b>异</span></span></button>`;
+    const acts = actionsOf(m, S.view === "members").map((a, i) =>
+      `<button type="button" class="btn btn-sm ${a.cls}" data-op="${i}">${a.label}</button>`).join("");
+    return `<div class="row${m.id === S.selected ? " active" : ""}" role="listitem" data-id="${esc(m.id)}">` +
+      `<button type="button" class="row-hit" aria-label="查看${esc(m.nickname)}">` +
+      `<span class="ava" aria-hidden="true">${esc(m.nickname.slice(0, 1))}</span>` +
+      `<span class="row-main"><span class="row-top"><span class="row-name">${esc(m.nickname)}</span>` +
+      `${sid ? `<span class="row-sid">${esc(sid)}</span>` : ""}</span>` +
+      `<span class="row-sub">${badgeOf(m)}` +
+      `${time ? `<span class="row-time${m.today_status === "ok" ? " done" : ""}">${esc(time)}</span>` : ""}` +
+      `<span class="ticks">${stripHtml(m.strip)}</span></span></span></button>` +
+      `<div class="row-acts">${acts}</div></div>`;
   }).join("");
 }
 
+// 点行查看详情；点行右侧按钮直接拉黑 / 删除 / 恢复
 $("list").onclick = e => {
   const row = e.target.closest("[data-id]");
   if (!row) return;
+  const op = e.target.closest("[data-op]");
+  if (op) {
+    const hit = findMember(row.dataset.id);
+    const a = hit && actionsOf(hit.m, hit.active)[+op.dataset.op];
+    if (a) doOp(op, a);
+    return;
+  }
   S.selected = row.dataset.id;
   renderList();
   renderDetail();
-  if (window.innerWidth < 760) $("detail").scrollIntoView({ behavior: "smooth", block: "start" });
+  if (window.innerWidth < 900) $("detail").scrollIntoView({ behavior: "smooth", block: "start" });
 };
+
 function renderDetail() {
   const hit = S.selected && findMember(S.selected);
   $("detail-empty").hidden = !!hit;
   $("detail-body").hidden = !hit;
   if (!hit) { S.selected = ""; Cal.clear(); return; }
   const { m, active } = hit;
-  // 拉黑/恢复后成员换了名单，标签页跟过去，保持选中
-  if (active !== (S.view === "members")) setView(active ? "members" : "inactive", true);
-
   const r = S.roster[m.id];
+  $("d-ava").textContent = m.nickname.slice(0, 1);
   $("uc-name").textContent = m.nickname;
   $("uc-sub").textContent = r?.student_id ? `学号 ${r.student_id}` : (active && !m.orphan ? "学号未获取" : "");
   const alert = $("uc-alert");
   alert.hidden = active && !m.orphan;
   alert.textContent = m.orphan ? "该成员账号信息已丢失，只剩历史记录，无法签到"
     : m.status_type === "deleted" ? "该成员已被删除，以下为历史记录（重新注册可自动恢复）"
-    : "该成员已被拉黑，以下为历史记录";
+    : "该成员已被拉黑，以下为历史记录（可在「非活跃」列表恢复）";
 
-  $("settings-panel").hidden = !(active && r);
-  if (active && r) {
-    Settings.render($("settings"), r, {
-      token: S.token,
-      sys: S.sys,
-      onChange: x => { S.roster[x.id] = x; load(); },
-      onExpired: expired,
-    });
+  const live = active && !!r;
+  $("today-box").hidden = $("info-card").hidden = !live;
+  if (live) {
+    const v = { m: r, day: { status: m.today_status, time: m.today_time },
+                paused: S.members.signing_enabled === false, showSid: false };
+    const ctx = { token: S.token, sys: S.sys, onChange: x => { S.roster[x.id] = x; load(); }, onExpired: expired };
+    Settings.today($("today-box"), v, ctx);
+    Settings.info($("info-box"), v, ctx);
   }
-  renderManage(m, active);
   Cal.load(m.nickname, true);
 }
 
-function renderManage(m, active) {
-  const acts = m.orphan && active ? [["清除残留", "btn-danger", "/api/orphan/hide", { nickname: m.nickname },
-      `清除「${m.nickname}」的列表残留？历史签到记录保留。`]]
-    : active ? [
-      ["拉黑", "btn-danger", "/api/blacklist/add", { id: m.id }, `拉黑「${m.nickname}」？将停止为其签到，且不能自行重新注册。`],
-      ["删除", "btn-secondary", "/api/member/delete", { id: m.id }, `删除「${m.nickname}」？将停止为其签到，历史保留；重新注册可自动恢复。`],
-    ] : [
-      ...(m.orphan ? [] : [["恢复", "btn-primary",
-        m.status_type === "deleted" ? "/api/deleted/restore" : "/api/blacklist/restore", { id: m.id },
-        `恢复「${m.nickname}」为正常成员？将重新参与自动签到。`]]),
-      ["彻底删除", "btn-danger", m.status_type === "deleted" ? "/api/deleted/purge" : "/api/blacklist/delete",
-        { id: m.id }, `彻底删除「${m.nickname}」？openid 将丢失，无法恢复。`, true],
-    ];
-  const box = $("manage");
-  box.innerHTML = "";
-  for (const [label, cls, path, body, ask, purge] of acts) {
-    const b = document.createElement("button");
-    b.type = "button";
-    b.className = cls;
-    b.textContent = label;
-    b.onclick = () => doOp(b, path, body, ask, purge);
-    box.appendChild(b);
+// 每个成员可做的管理操作（显示在列表行右侧）
+function actionsOf(m, active) {
+  const n = m.nickname;
+  if (active && m.orphan) {
+    return [{ label: "清除残留", cls: "btn-danger", path: "/api/orphan/hide", body: { nickname: n },
+              ask: `清除「${n}」的列表残留？历史签到记录保留。` }];
   }
+  if (active) {
+    return [
+      { label: "拉黑", cls: "btn-danger", path: "/api/blacklist/add", body: { id: m.id },
+        ask: `拉黑「${n}」？将停止为其签到，且不能自行重新注册。` },
+      { label: "删除", cls: "btn-ghost", path: "/api/member/delete", body: { id: m.id },
+        ask: `删除「${n}」？将停止为其签到，历史保留；重新注册可自动恢复。` },
+    ];
+  }
+  const del = m.status_type === "deleted";
+  return [
+    ...(m.orphan ? [] : [{ label: "恢复", cls: "btn-primary", body: { id: m.id },
+      path: del ? "/api/deleted/restore" : "/api/blacklist/restore",
+      ask: `恢复「${n}」为正常成员？将重新参与自动签到。` }]),
+    { label: "彻底删除", cls: "btn-danger", body: { id: m.id }, purge: true,
+      path: del ? "/api/deleted/purge" : "/api/blacklist/delete",
+      ask: `彻底删除「${n}」？openid 将丢失，无法恢复。` },
+  ];
 }
-async function doOp(btn, path, body, ask, purge) {
-  if (!confirm(ask)) return;
-  const { status, data } = await withBusy(btn, "处理中…", () => api(path, { token: S.token, ...body }));
+
+async function doOp(btn, a) {
+  if (!confirm(a.ask)) return;
+  const { status, data } = await withBusy(btn, "处理中…", () => api(a.path, { token: S.token, ...a.body }));
   if (isExpired(status, data)) return expired();
   if (status !== 200) return showToast(data.error || "操作失败", "error");
-  showToast(`已${btn.textContent}「${data.nickname || ""}」`);
-  if (purge) S.selected = "";
+  showToast(`已${a.label}「${data.nickname || ""}」`);
+  if (a.purge && a.body.id === S.selected) S.selected = "";
   load();
 }
 
@@ -218,29 +241,40 @@ $("backfill-btn").onclick = async () => {
   load();
 };
 
-function setView(v, keepFilter) {
+function setView(v, keep) {
   S.view = v;
-  if (!keepFilter) { S.filter = ""; $("search").value = ""; }
+  if (!keep) { S.group = "all"; S.filter = ""; $("search").value = ""; }
   document.querySelectorAll(".tab").forEach(t => {
     t.classList.toggle("active", t.dataset.view === v);
-    t.setAttribute("aria-selected", t.dataset.view === v);
+    t.setAttribute("aria-selected", String(t.dataset.view === v));
   });
-  const missing = Object.values(S.roster).filter(x => !x.student_id).length;
-  $("ids-tools").hidden = !missing || v !== "members";
+  renderOverview();
   renderList();
 }
 
-document.querySelectorAll(".tab").forEach(t => { t.onclick = () => setView(t.dataset.view); });
-$("search").oninput = () => { S.filter = $("search").value; renderList(); };
+document.querySelectorAll(".tab").forEach(t => { t.onclick = () => S.members && setView(t.dataset.view); });
+document.querySelectorAll(".stat").forEach(s => {
+  s.onclick = () => {
+    if (!S.members) return;
+    const g = s.dataset.g;
+    S.group = g === "all" || S.group === g ? "all" : g;   // 再点一次取消筛选
+    setView("members", true);
+  };
+});
+$("filter-clear").onclick = () => { S.group = "all"; setView(S.view, true); };
+$("search").oninput = () => { S.filter = $("search").value; if (S.members) renderList(); };
+$("back-btn").onclick = () => $("list-card").scrollIntoView({ behavior: "smooth", block: "start" });
 
-$("signing-toggle-btn").onclick = async () => {
+$("signing-switch").onclick = async () => {
   const enabled = S.members.signing_enabled === false;
-  if (!confirm(`确定${enabled ? "恢复" : "停止"}所有用户的自动签到吗？`)) return;
-  const { status, data } = await withBusy($("signing-toggle-btn"), "处理中…",
-    () => api("/api/signing", { token: S.token, enabled }));
+  if (!confirm(`确定${enabled ? "恢复" : "暂停"}所有人的自动签到吗？`)) return;
+  const sw = $("signing-switch");
+  sw.disabled = true;
+  const { status, data } = await api("/api/signing", { token: S.token, enabled });
+  sw.disabled = false;
   if (isExpired(status, data)) return expired();
   if (status !== 200) return showToast(data.error || "操作失败", "error");
-  showToast(enabled ? "已恢复自动签到" : "已停止自动签到");
+  showToast(enabled ? "已恢复自动签到" : "已暂停自动签到");
   load();
 };
 
