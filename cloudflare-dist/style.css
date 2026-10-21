@@ -351,3 +351,155 @@ main { max-width: 980px; margin: 0 auto; padding: 20px 14px 0; width: 100%; alig
   opacity: 1;
   transform: translateY(0);
 }
+
+/* ============================================================
+   精修层：沿用原有浅蓝风格，补对比度、焦点、状态与新组件
+   ============================================================ */
+:root {
+  --accent-strong: #3a76bd;   /* 白字按钮/链接用：与白色对比度 ≥ 4.5 */
+  --accent-strong-hover: #2f66a6;
+  --danger-strong: #c0443f;
+  --shadow-lift: 0 6px 20px rgba(80,110,150,.12);
+}
+[hidden] { display: none !important; }
+body { line-height: 1.5; }
+
+.topbar { background: linear-gradient(120deg, #5a9ad6, #4a86cc 55%, #6496e0); }
+.topbar h1 { font-size: 17px; }
+.topbar .today { font-variant-numeric: tabular-nums; }
+
+.btn-primary { background: var(--accent-strong); }
+.btn-primary:hover:not(:disabled) { background: var(--accent-strong-hover); }
+.btn-danger { background: var(--danger-strong); }
+.btn-danger:hover:not(:disabled) { background: #a53632; }
+.btn-secondary {
+  padding: 10px 18px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600;
+  cursor: pointer; background: var(--accent-soft); color: var(--accent-strong); transition: background .12s;
+}
+.btn-secondary:hover:not(:disabled) { background: #e0edf9; }
+.btn-primary:disabled, .btn-secondary:disabled, .btn-danger:disabled { opacity: .45; cursor: not-allowed; }
+a.btn-link { text-decoration: none; display: inline-block; }
+.login-box .btn-link { color: var(--accent-strong); font-size: 13px; padding: 4px 0; }
+.btn-quiet-danger {
+  align-self: flex-start; background: none; border: none; cursor: pointer;
+  color: #b8433e; font-size: 13px; padding: 6px 2px; margin-top: 2px;
+}
+.btn-quiet-danger:hover { text-decoration: underline; }
+
+button:focus-visible, a:focus-visible, input:focus-visible {
+  outline: 2px solid var(--accent-strong); outline-offset: 2px;
+}
+
+/* 状态徽章：浅底深字，小字号下也清楚 */
+.m-badge { font-weight: 600; }
+.m-badge.d-ok { background: #e3f5ec; color: #23805a; }
+.m-badge.d-fail { background: #fdeceb; color: var(--danger-strong); }
+.m-badge.d-pending, .m-badge.d-none { background: #fdf3df; color: #94650f; }
+.m-badge.d-deleted { background: #eef1f5; color: #5f6b7a; }
+.stamp.d-ok { background: #3fae80; }
+.stamp.d-fail { background: #e8726e; }
+.m-name, .num, .m-count, .stat .num { font-variant-numeric: tabular-nums; }
+/* 设置面板 */
+.panel { background: var(--card); border-radius: 14px; padding: 14px 16px; box-shadow: var(--shadow); }
+.panel-title { font-size: 13px; font-weight: 600; color: var(--sub); margin-bottom: 6px; }
+.kv-list { display: flex; flex-direction: column; }
+.kv {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 14px;
+}
+.kv:last-child { border-bottom: none; }
+.kv .k { color: var(--sub); flex: none; }
+.kv .v { display: inline-flex; align-items: center; gap: 8px; text-align: right; min-width: 0; }
+.kv .num { font-size: 16px; font-weight: 700; color: var(--txt); }
+.tag { font-size: 11.5px; font-weight: 600; padding: 2px 8px; border-radius: 20px; white-space: nowrap; }
+.tag-ok { background: #e3f5ec; color: #23805a; }
+.tag-pending { background: #fdf3df; color: #94650f; }
+.tag-accent { background: var(--accent-soft); color: var(--accent-strong); }
+.tag-muted { background: #eef1f5; color: #5f6b7a; }
+.action-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.action-row > button { flex: 1 1 auto; width: auto; padding: 9px 14px; font-size: 13.5px; }
+.panel .action-row:first-child { margin-top: 4px; }
+.empty-sm { color: var(--sub); font-size: 13px; padding: 10px 0; }
+
+/* 对话框 */
+.login-box { width: min(340px, calc(100vw - 32px)); }
+.login-box h2 { margin-bottom: 8px; }
+.dialog-desc { font-size: 13px; color: var(--sub); text-align: center; margin-bottom: 16px; line-height: 1.6; }
+.login-box > input:first-of-type { margin-top: 4px; }
+.dialog-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; }
+.dialog-foot > :only-child { margin: 0 auto; }
+.time-fields { display: flex; gap: 10px; }
+.time-field { flex: 1; display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--sub); }
+.login-box .time-input {
+  width: 100%; margin: 0; padding: 10px 12px; font-size: 18px; font-weight: 600;
+  text-align: center; font-variant-numeric: tabular-nums;
+}
+.toast-error { background: var(--danger-strong); }
+@media (max-width: 600px) {
+  .toast { left: 16px; right: 16px; top: auto; bottom: 20px; text-align: center; }
+}
+
+/* 成员行（管理页是按钮，用户页是静态卡片） */
+.member.row {
+  width: 100%; font: inherit; color: inherit; text-align: left; cursor: pointer;
+  transition: border-color .12s, box-shadow .12s;
+}
+.member.row:hover { box-shadow: var(--shadow-lift); }
+.member.row .m-ava { flex: none; }
+.member .m-card { cursor: default; }
+.member .m-card:hover { opacity: 1; }
+.m-sid { font-size: 11.5px; color: var(--sub); font-variant-numeric: tabular-nums; }
+/* 用户页左栏：成员卡 + 设置面板 + 退出 */
+body:not(.admin) .left { gap: 12px; }
+body:not(.admin) .left .sec-title { margin: 0 2px; }
+body:not(.admin) .members { flex: none; overflow: visible; padding: 2px; margin: 0; }
+
+/* ---------------- 管理页 ---------------- */
+body.admin main { max-width: 1240px; display: flex; flex-direction: column; gap: 14px; }
+body.admin .overview { max-width: none; padding: 0; }
+.list-tools {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 12.5px; color: #94650f; background: #fdf3df;
+  border-radius: 8px; padding: 4px 10px; margin-bottom: 8px;
+}
+.list-tools .btn-link { color: var(--accent-strong); font-size: 12.5px; padding: 4px 0; }
+.tab span { font-weight: 400; opacity: .8; margin-left: 2px; }
+.detail { background: var(--card); border-radius: 16px; padding: 16px 18px; box-shadow: var(--shadow); }
+.detail-empty { color: var(--sub); text-align: center; padding: 80px 20px; }
+.uc-sub { font-size: 12.5px; color: var(--sub); margin-top: 2px; font-variant-numeric: tabular-nums; }
+.detail-grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
+.detail-side { display: flex; flex-direction: column; gap: 12px; }
+.detail-side .panel { box-shadow: none; border: 1px solid var(--line); }
+#manage > button { flex: 0 0 auto; }
+
+@media (min-width: 760px) {
+  body.admin .admin-layout { flex: 1; min-height: 0; }
+  body.admin .detail { overflow-y: auto; min-height: 0; }
+}
+@media (min-width: 1080px) {
+  .detail-grid { grid-template-columns: 320px 1fr; align-items: start; }
+}
+@media (max-width: 759px) {
+  body.admin .members { max-height: 55vh; }
+}
+
+/* 管理页细节：选中标签与统计数字加深，日历行留出间距，学号已在标题下显示 */
+.tab.active { background: var(--accent-strong); }
+.stat-total .num { color: var(--accent-strong); }
+.stat-ok .num { color: #2f9e6e; }
+.stat-fail .num { color: #d65450; }
+.stat-pending .num { color: #c98a1b; }
+body.admin .calendar td { padding: 3px 0; }
+body.admin .kv-sid { display: none; }
+
+@media (max-width: 480px) {
+  .topbar { padding: 12px 16px; }
+  .topbar .today { display: none; }   /* 手机顶部本来就有时间 */
+}
+
+/* 立即签到单独一行，两个"设置类"操作并排 */
+.action-row > [data-act="now"] { flex-basis: 100%; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
+}
